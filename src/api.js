@@ -1,13 +1,11 @@
-import { COOLERS, MENU } from "./data.js";
-
 export async function getCoolers() {
-  await delay(150);
-  return COOLERS;
+  const data = await import("./data/inventory.json");
+  return data.coolers || data.default?.coolers || [];
 }
 
 export async function getMenuByCooler(/* coolerId */) {
-  await delay(150);
-  return MENU;
+  const data = await import("./data/inventory.json");
+  return data.menu || data.default?.menu || [];
 }
 
 export async function submitOrder({ coolerId, items }) {
@@ -20,6 +18,4 @@ export async function submitSurvey(payload) {
   return { ok: true, receivedAt: new Date().toISOString(), payload };
 }
 
-function delay(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
