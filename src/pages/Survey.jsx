@@ -1,79 +1,31 @@
-import Title from "../components/Title.jsx";
-import Card from "../components/Card.jsx";
-import Button from "../components/Button.jsx";
-import { useCart } from "../context/CartContext.jsx";
-import { submitSurvey } from "../api.js";
-import { useNavigate } from "react-router-dom";
+// src/pages/Survey.jsx
+import React from "react";
+
+const SURVEY_URL =
+  "https://survey.mphi.org/surveys/?s=HD7C7FPHNCEWFXR3";
 
 export default function Survey() {
-  const { survey, setSurvey } = useCart();
-  const nav = useNavigate();
-
-  async function handleSubmit() {
-    await submitSurvey(survey);
-    nav("/help");
-  }
-
   return (
-    <>
-      <Title>Quick Survey</Title>
-      <Card>
-        <div style={{ display: "grid", gap: 14 }}>
-          <label>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>How was your experience?</div>
-            <select
-              value={survey.rating}
-              onChange={(e) => setSurvey((s) => ({ ...s, rating: e.target.value }))}
-              style={{ padding: 8, borderRadius: 10, border: "1px solid #f0d6bd" }}
-            >
-              <option value="">Choose…</option>
-              <option value="5">Excellent (5)</option>
-              <option value="4">Good (4)</option>
-              <option value="3">Okay (3)</option>
-              <option value="2">Poor (2)</option>
-              <option value="1">Bad (1)</option>
-            </select>
-          </label>
+    <main className="min-h-screen">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Customer Survey</h2>
+      <p className="text-sm text-gray-700 mb-4">
+        Tell us how the HaRC Healthy Coolers are working for you. Your
+        responses help improve food options, cooler locations, and support
+        services.
+      </p>
 
-          <label>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Would you recommend HaRC coolers?</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {["Yes", "Maybe", "No"].map((opt) => (
-                <Button
-                  key={opt}
-                  kind={survey.wouldRecommend === opt ? "primary" : "ghost"}
-                  onClick={() => setSurvey((s) => ({ ...s, wouldRecommend: opt }))}
-                >
-                  {opt}
-                </Button>
-              ))}
-            </div>
-          </label>
+      <a
+        href={SURVEY_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-600 transition"
+      >
+        Open Survey in New Tab
+      </a>
 
-          <label>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Anything else?</div>
-            <textarea
-              value={survey.notes}
-              onChange={(e) => setSurvey((s) => ({ ...s, notes: e.target.value }))}
-              placeholder="Comments (optional)"
-              rows={3}
-              style={{
-                width: "100%",
-                padding: 10,
-                borderRadius: 12,
-                border: "1px solid #f0d6bd",
-                resize: "vertical",
-                color: "#4a2a12",
-              }}
-            />
-          </label>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <Button onClick={handleSubmit} disabled={!survey.rating || !survey.wouldRecommend}>Submit</Button>
-            <Button kind="ghost" onClick={() => nav("/help")}>Skip</Button>
-          </div>
-        </div>
-      </Card>
-    </>
+      <p className="text-xs text-gray-500 mt-3">
+        The link above will take you to our secure survey page hosted by MPHI.
+      </p>
+    </main>
   );
 }

@@ -1,57 +1,55 @@
-import Title from "../components/Title.jsx";
-import Card from "../components/Card.jsx";
-import Button from "../components/Button.jsx";
-import { useCart } from "../context/CartContext.jsx";
-import { MENU } from "../data.js";
-import { useNavigate } from "react-router-dom";
-import { submitOrder } from "../api.js";
+// src/pages/Cart.jsx
+import React from "react";
+import { MENU_ITEMS } from "../data";
 
 export default function Cart() {
-  const { cart, add, dec, removeLine, total, cooler } = useCart();
-  const nav = useNavigate();
-
-  async function checkout() {
-    await submitOrder({ coolerId: cooler?.id, items: cart });
-    nav("/confirm");
-  }
+  // For now, pretend first 2 items are in the cart
+  const cartItems = MENU_ITEMS.slice(0, 2);
+  const total = cartItems.reduce((sum, item) => sum + item.price, 0);
 
   return (
-    <>
-      <Title>Cart</Title>
-      {cart.length === 0 ? (
-        <Card><div style={{ color: "#885522" }}>Your cart is empty.</div></Card>
-      ) : (
-        <div style={{ display: "grid", gap: 12 }}>
-          {cart.map((line) => {
-            const item = MENU.find((m) => m.id === line.id);
-            if (!item) return null;
-            return (
-              <Card key={line.id}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{item.name}</div>
-                    <div style={{ color: "#885522", fontSize: 13 }}>${item.price.toFixed(2)} each</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Button kind="ghost" onClick={() => dec(line.id)}>-</Button>
-                    <div style={{ minWidth: 28, textAlign: "center", fontWeight: 700 }}>{line.qty}</div>
-                    <Button kind="ghost" onClick={() => add(line.id)}>+</Button>
-                    <Button kind="ghost" onClick={() => removeLine(line.id)}>Remove</Button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontWeight: 800 }}>Total</div>
-            <div style={{ fontWeight: 800 }}>${total.toFixed(2)}</div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Button kind="ghost" onClick={() => nav(-1)}>Keep Browsing</Button>
-            <Button onClick={checkout}>Checkout</Button>
-          </div>
+    <main className="min-h-screen">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Cart (Preview)</h2>
+      <p className="text-sm text-gray-700 mb-4">
+        This is a preview of what ordering will look like. Online ordering is
+        not live yet.
+      </p>
+
+      <section className="space-y-4">
+        {cartItems.map((item) => (
+          <article
+            key={item.id}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  1 x ${item.price.toFixed(2)}
+                </p>
+              </div>
+              <p className="font-semibold text-gray-900">
+                ${item.price.toFixed(2)}
+              </p>
+            </div>
+          </article>
+        ))}
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+          <span className="font-semibold text-gray-900">Total (preview)</span>
+          <span className="font-bold text-gray-900">
+            ${total.toFixed(2)}
+          </span>
         </div>
-      )}
-    </>
+
+        <button
+          type="button"
+          disabled
+          className="w-full rounded-full bg-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 cursor-not-allowed"
+        >
+          Checkout (coming soon)
+        </button>
+      </section>
+    </main>
   );
 }

@@ -1,38 +1,48 @@
-import Title from "../components/Title.jsx";
-import Card from "../components/Card.jsx";
-import Button from "../components/Button.jsx";
-import { getMenuByCooler } from "../api.js";
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useCart } from "../context/CartContext.jsx";
+// src/pages/Menu.jsx
+import React from "react";
+import { MENU_ITEMS } from "../data";
 
 export default function Menu() {
-  const [menu, setMenu] = useState([]);
-  const { id } = useParams();
-  const nav = useNavigate();
-  const { cooler, add } = useCart();
-
-  useEffect(() => { getMenuByCooler(id).then(setMenu); }, [id]);
-
   return (
-    <>
-      <Title subtitle={cooler?.address || ""}>{cooler?.name || "Cooler"}</Title>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-        {menu.map((m) => (
-          <Card key={m.id}>
-            <div style={{ fontWeight: 700 }}>{m.name}</div>
-            <div style={{ color: "#885522", fontSize: 13, marginTop: 6 }}>{m.calories} cal</div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-              <div style={{ fontWeight: 800 }}>${m.price.toFixed(2)}</div>
-              <Button onClick={() => add(m.id)}>Add</Button>
+    <main className="min-h-screen">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Menu (Preview)</h2>
+      <p className="text-sm text-gray-700 mb-4">
+        Sample HaRC menu items available in participating coolers.
+      </p>
+
+      <section className="space-y-4">
+        {MENU_ITEMS.map((item) => (
+          <article
+            key={item.id}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                <p className="text-sm text-gray-600 mt-1">{item.desc}</p>
+
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="inline-flex items-center rounded-full bg-orange-50 px-2 py-1 text-xs font-medium text-orange-700">
+                    {item.tag}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {item.calories}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <p className="font-semibold text-gray-900">
+                  ${item.price.toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Ordering coming soon
+                </p>
+              </div>
             </div>
-          </Card>
+          </article>
         ))}
-      </div>
-      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-        <Button kind="ghost" onClick={() => nav("/")}>Back</Button>
-        <Button onClick={() => nav("/cart")}>Go to Cart</Button>
-      </div>
-    </>
+      </section>
+    </main>
   );
 }
