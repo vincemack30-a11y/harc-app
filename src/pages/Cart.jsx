@@ -49,6 +49,7 @@ function Cart() {
                   : ""}
               </p>
               <button
+                type="button"
                 onClick={() => removeFromCart(item.id)}
                 className="mt-1 text-xs text-red-500"
               >
@@ -74,6 +75,7 @@ function Cart() {
 
       <div className="flex gap-3">
         <button
+          type="button"
           onClick={clearCart}
           className="px-4 py-2 rounded-lg border border-gray-300 text-sm"
         >
