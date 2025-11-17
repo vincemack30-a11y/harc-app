@@ -8,11 +8,9 @@ function Menu() {
   const { coolerId } = useParams();
   const { addToCart } = useCart();
 
-  // Try to find the selected cooler (for header display)
   const cooler = COOLERS.find((c) => String(c.id) === String(coolerId));
 
-  // If your MENU items are tied to a coolerId, filter by it.
-  // If not, this will just show all items.
+  // If MENU items have a coolerId field, filter by it; otherwise show all.
   const items = MENU.filter((item) => {
     if (item.coolerId == null) return true;
     return String(item.coolerId) === String(coolerId);
@@ -22,69 +20,109 @@ function Menu() {
     addToCart({
       id: item.id,
       name: item.name,
-      price: item.price,
+      price: item.price || 0,
+      quantity: 1,
       coolerId: coolerId || item.coolerId,
     });
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4">
-      <h2 className="text-2xl font-bold mb-2">
-        {cooler ? cooler.name : "Menu"}
-      </h2>
-      {cooler && (
-        <p className="text-sm text-gray-600 mb-4">
-          {cooler.address} · {cooler.city} {cooler.zip}
-        </p>
-      )}
+    <div className="space-y-4">
+      <section className="card">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="section-title">
+              {cooler ? cooler.name : "Menu"}
+            </h2>
+            {cooler && (
+              <p className="section-subtitle">
+                {cooler.address}
+                {cooler.city && ` · ${cooler.city}`}
+                {cooler.zip && ` ${cooler.zip}`}
+              </p>
+            )}
+          </div>
 
-      {items.length === 0 ? (
-        <p className="text-gray-600">No items found for this cooler.</p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-xl shadow p-4 flex flex-col justify-between"
-            >
-              <div>
-                <h3 className="font-semibold text-lg mb-1">{item.name}</h3>
-                {item.description && (
-                  <p className="text-sm text-gray-600 mb-1">
-                    {item.description}
-                  </p>
-                )}
-                {item.calories && (
-                  <p className="text-xs text-gray-500">
-                    {item.calories} calories
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-semibold">
-                  {item.price ? `$${item.price.toFixed(2)}` : ""}
-                </span>
-                <button
-                  onClick={() => handleAdd(item)}
-                  className="px-3 py-1 rounded-lg bg-black text-white text-sm font-semibold"
-                >
-                  Add to Cart
-                </button>
-              </div>
-            </div>
-          ))}
+          <Link
+            to="/coolers"
+            className="hidden md:inline-flex items-center rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-800"
+          >
+            ← Back to coolers
+          </Link>
         </div>
-      )}
 
-      <div className="mt-6">
-        <Link
-          to="/cart"
-          className="inline-block px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-semibold"
-        >
-          View Cart
-        </Link>
-      </div>
+        {items.length === 0 ? (
+          <p className="text-sm text-slate-600 mt-2">
+            No items found for this cooler yet. Please check back soon.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl bg-slate-50 p-4 shadow-sm ring-1 ring-slate-100 flex flex-col justify-between"
+              >
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900 mb-1">
+                    {item.name}
+                  </h3>
+                  {item.description && (
+                    <p className="text-xs text-slate-600 mb-1">
+                      {item.description}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {item.calories && (
+                      <span className="chip">{item.calories} cal</span>
+                    )}
+                    {item.category && (
+                      <span className="chip">{item.category}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    {item.price != null && (
+                      <span className="text-sm font-semibold text-slate-900">
+                        ${item.price.toFixed(2)}
+                      </span>
+                    )}
+                    {item.tags && (
+                      <span className="text-[10px] text-slate-500 mt-1">
+                        {item.tags}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAdd(item)}
+                    className="inline-flex items-center rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+                  >
+                    Add to cart
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            to="/cart"
+            className="inline-flex items-center rounded-full bg-black text-white px-4 py-1.5 text-xs font-semibold"
+          >
+            View cart &amp; checkout
+          </Link>
+          <Link
+            to="/survey"
+            className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-800"
+          >
+            Complete HaRC survey
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

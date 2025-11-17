@@ -1,74 +1,79 @@
 // src/pages/Coolers.jsx
-import React, { useState } from "react";
-import { COOLERS } from "../data";
+import React from "react";
+import { Link } from "react-router-dom";
+import { COOLERS } from "../data.js";
 
-export default function Coolers() {
-  const [showSummary, setShowSummary] = useState(false);
+function Coolers() {
+  // Sort by name so it feels organized
+  const coolers = [...COOLERS].sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "")
+  );
 
   return (
-    <main className="min-h-screen">
-      {/* Intro / “Summarize” bar */}
-      <section className="mb-4">
-        <button
-          type="button"
-          onClick={() => setShowSummary(true)}
-          className="w-full rounded-full bg-gray-100 px-4 py-3 text-left text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-200 transition"
-        >
-          📝 Summarize
-        </button>
-      </section>
+    <div className="space-y-4">
+      <section className="card">
+        <h2 className="section-title">Cooler Locations</h2>
+        <p className="section-subtitle">
+          Choose a HaRC Healthy Cooler near you to view the menu and start an
+          order.
+        </p>
 
-      {/* Description */}
-      <p className="text-sm text-gray-700 mb-4">
-        Find HaRC Healthy Coolers at our partner clinics and hubs.
-      </p>
+        {coolers.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            Cooler locations will appear here as they are added.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            {coolers.map((cooler) => (
+              <div
+                key={cooler.id}
+                className="rounded-2xl bg-slate-50 p-4 shadow-sm ring-1 ring-slate-100 flex flex-col justify-between"
+              >
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900 mb-1">
+                    {cooler.name}
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    {cooler.address}
+                    {cooler.city && ` · ${cooler.city}`}
+                    {cooler.zip && ` ${cooler.zip}`}
+                  </p>
+                  {cooler.notes && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      {cooler.notes}
+                    </p>
+                  )}
+                </div>
 
-      {/* List of coolers */}
-      <section className="space-y-4">
-        {COOLERS.map((c) => (
-          <article
-            key={c.id}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
-          >
-            <h2 className="text-lg font-semibold text-gray-900">{c.name}</h2>
-            <p className="text-sm text-gray-700 mt-1">{c.address}</p>
-            <p className="text-xs text-gray-500 mt-1">ZIP: {c.zip}</p>
-          </article>
-        ))}
-      </section>
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex flex-wrap gap-1">
+                    {cooler.zip && (
+                      <span className="chip">ZIP {cooler.zip}</span>
+                    )}
+                    {cooler.status && (
+                      <span className="chip">
+                        {cooler.status === "open" ? "Open now" : cooler.status}
+                      </span>
+                    )}
+                    {cooler.type && (
+                      <span className="chip">{cooler.type}</span>
+                    )}
+                  </div>
 
-      {/* Summary modal */}
-      {showSummary && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-5">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              HaRC Healthy Coolers – Summary
-            </h3>
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-4">
-              <li>3 active HaRC Healthy Cooler locations in Detroit.</li>
-              <li>
-                Sites include Popoff Family Health Center, New Center One, and a
-                Mack &amp; Eastside hub.
-              </li>
-              <li>
-                Focused on grab-and-go healthy meals and snacks in trusted
-                health settings.
-              </li>
-              <li>
-                Future versions will add real-time inventory, ordering, and
-                Medicaid/Medicare support.
-              </li>
-            </ul>
-            <button
-              type="button"
-              onClick={() => setShowSummary(false)}
-              className="w-full rounded-full bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 transition"
-            >
-              Close
-            </button>
+                  <Link
+                    to={`/menu/${cooler.id}`}
+                    className="ml-2 inline-flex items-center rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+                  >
+                    View menu →
+                  </Link>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
-    </main>
+        )}
+      </section>
+    </div>
   );
 }
+
+export default Coolers;

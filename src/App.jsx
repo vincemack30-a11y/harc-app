@@ -2,29 +2,23 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-import Layout from "./components/Layout.jsx";
-
-import Home from "./pages/Home.jsx";
-import Coolers from "./pages/Coolers.jsx";
-import Menu from "./pages/Menu.jsx";
-import Cart from "./pages/Cart.jsx";
-import Confirm from "./pages/Confirm.jsx";
-import Survey from "./pages/Survey.jsx";
-import Help from "./pages/Help.jsx";
-
+import Layout from "./components/Layout";
+import Home from "./pages/Home";
+import Coolers from "./pages/Coolers";
+import Cart from "./pages/Cart";
+import Confirm from "./pages/Confirm";
+import Survey from "./pages/Survey";
+import Help from "./pages/Help";
 import { CartProvider } from "./context/CartContext.jsx";
-import { ORANGE } from "./data.js";
-import "./index.css";
 
 function App() {
   return (
     <CartProvider>
       <Router>
-        <Layout brandColor={ORANGE}>
+        <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/coolers" element={<Coolers />} />
-            <Route path="/menu/:coolerId" element={<Menu />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/confirm" element={<Confirm />} />
             <Route path="/survey" element={<Survey />} />
