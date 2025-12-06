@@ -1,229 +1,128 @@
 // src/pages/Cart.jsx
-import React from "react";
-import { Link } from "react-router-dom";
-import { useCart } from "../context/CartContext.jsx";
+import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-function Cart() {
-  const { items, removeFromCart, clearCart } = useCart();
+// When running locally (vite dev), call the live Vercel API.
+// In production (on Vercel), keep it relative (/api/...).
+const API_BASE = import.meta.env.DEV
+  ? "https://harc-r4yekhdui-vincemack30-7988s-projects.vercel.app"
+  : "";
 
-  const subtotal = items.reduce(
-    (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
-    0
+function CartPage({ cart, setCart, selectedCooler, onOrderComplete }) {
+  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const total = useMemo(
+    () => cart.reduce((sum, item) => sum + item.price * item.qty, 0),
+    [cart]
   );
 
-  const money = (value) => `$${value.toFixed(2)}`;
+  const handleSubmit = async () => {
+    if (cart.length === 0) return;
 
-  // Empty cart state
-  if (!items.length) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px",
-          fontSize: "13px",
-          color: "#475569",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "18px",
-            fontWeight: 600,
-            color: "#0f172a",
-            marginBottom: "4px",
-          }}
-        >
-          Your cart is empty
-        </h2>
-        <p style={{ fontSize: "12px" }}>
-          Add items from a HaRC Healthy Cooler to see them here.
-        </p>
-        <div style={{ marginTop: "4px" }}>
-          <Link
-            to="/coolers"
-            style={{
-              display: "inline-block",
-              padding: "6px 14px",
-              borderRadius: "9999px",
-              backgroundColor: "#0f172a",
-              color: "#ffffff",
-              fontSize: "11px",
-              fontWeight: 600,
-              textDecoration: "none",
-            }}
-          >
-            Browse coolers
-          </Link>
-        </div>
-      </div>
-    );
-  }
+    setSubmitting(true);
+    setErrorMsg("");
 
-  // Cart with items
+    try {
+      const now = new Date().toISOString();
+
+      // Send BOTH camelCase and snake_case so whatever the API expects will work
+      const payload = {
+        items: cart,
+        total,
+        coolerId: selectedCooler ? selectedCooler.id : null,
+        cooler_id: selectedCooler ? selectedCooler.id : null,
+        createdAt: now,
+        created_at: now,
+      };
+
+      const res = await fetch(`${API_BASE}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        // if body isn't JSON, keep data = null
+      }
+
+      if (!res.ok) {
+        console.error("Order submit error:", data || res.statusText);
+        setErrorMsg(
+          "There was a problem sending your order. Please try again."
+        );
+        setSubmitting(false);
+        return;
+      }
+
+      // Save last order for confirmation screen
+      const orderData = data && data.order ? data.order : payload;
+      onOrderComplete(orderData);
+
+      // Clear cart
+      setCart([]);
+
+      // Go to confirmation page
+      navigate("/order-confirmation");
+    } catch (err) {
+      console.error("Order submit network error:", err);
+      setErrorMsg("Something went wrong. Please try again.");
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "14px",
-        fontSize: "13px",
-        color: "#475569",
-      }}
-    >
-      <h2
-        style={{
-          fontSize: "18px",
-          fontWeight: 600,
-          color: "#0f172a",
-        }}
-      >
-        Your cart
-      </h2>
+    <div>
+      <h2 className="text-xl font-semibold mb-2">Your cart</h2>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-        }}
-      >
-        {items.map((item, index) => (
-          <div
-            key={index}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "8px 10px",
-              borderRadius: "12px",
-              backgroundColor: "#ffffff",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <div style={{ flex: 1, marginRight: "8px" }}>
-              <div
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "#0f172a",
-                }}
-              >
-                {item.name || "Item"}
-              </div>
-              <div
-                style={{
-                  fontSize: "11px",
-                  color: "#64748b",
-                }}
-              >
-                Qty: {item.quantity || 1} · {money(item.price || 0)}
-              </div>
-            </div>
+      {selectedCooler ? (
+        <p className="text-xs mb-2">
+          Cooler: <strong>{selectedCooler.name}</strong>
+        </p>
+      ) : (
+        <p className="text-xs mb-2">
+          No cooler selected. You can still place an order, but staff may ask
+          which location you’re at.
+        </p>
+      )}
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-end",
-                gap: "4px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: "#0f172a",
-                }}
-              >
-                {money((item.price || 0) * (item.quantity || 1))}
-              </div>
-              <button
-                type="button"
-                onClick={() => removeFromCart(item.id ?? index)}
-                style={{
-                  border: "none",
-                  background: "none",
-                  color: "#ef4444",
-                  fontSize: "11px",
-                  cursor: "pointer",
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      {cart.length === 0 ? (
+        <p className="mt-3 text-sm">Your cart is empty.</p>
+      ) : (
+        <>
+          <ul className="mb-3 text-sm">
+            {cart.map((item) => (
+              <li key={item.id} className="flex justify-between mb-1">
+                <span>
+                  {item.name} × {item.qty}
+                </span>
+                <span>${(item.price * item.qty).toFixed(2)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="font-semibold mb-3 text-sm">
+            Total: ${total.toFixed(2)}
+          </p>
 
-      {/* Summary + actions */}
-      <div
-        style={{
-          borderTop: "1px solid #e2e8f0",
-          paddingTop: "10px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: "#0f172a",
-          }}
-        >
-          <span>Subtotal</span>
-          <span>{money(subtotal)}</span>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "8px",
-            marginTop: "4px",
-          }}
-        >
           <button
-            type="button"
-            onClick={clearCart}
-            style={{
-              padding: "6px 14px",
-              borderRadius: "9999px",
-              border: "1px solid #e2e8f0",
-              backgroundColor: "#ffffff",
-              fontSize: "11px",
-              fontWeight: 600,
-              color: "#ef4444",
-              cursor: "pointer",
-            }}
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60"
           >
-            Clear cart
+            {submitting ? "Sending order..." : "Submit order & show to staff"}
           </button>
 
-          <Link
-            to="/confirm"
-            style={{
-              display: "inline-block",
-              padding: "6px 16px",
-              borderRadius: "9999px",
-              background:
-                "linear-gradient(135deg, #22c55e 0%, #16a34a 40%, #15803d 100%)",
-              color: "#ffffff",
-              fontSize: "11px",
-              fontWeight: 600,
-              textDecoration: "none",
-              boxShadow: "0 3px 7px rgba(34,197,94,0.4)",
-            }}
-          >
-            Checkout & confirm
-          </Link>
-        </div>
-      </div>
+          {errorMsg && (
+            <p className="text-xs text-red-800 mt-2">{errorMsg}</p>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-export default Cart;
+export default CartPage;

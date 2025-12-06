@@ -1,87 +1,55 @@
 // src/pages/Help.jsx
 import React from "react";
-import authorityLogo from "../assets/authority-health-centers.png";
+import { Link } from "react-router-dom";
 
-const FB_URL = "https://www.facebook.com/detroitauthorityhealth/";
-const IG_URL = "https://www.instagram.com/authority_health/";
-const DONATE_URL = "https://authorityhealth.org/donate/";
-
-function Help() {
+function HelpPage({ selectedCooler }) {
   return (
-    <div className="space-y-6">
-      {/* This page owns the Authority Health Centers logo */}
-      <section className="card flex flex-col items-start gap-3 md:flex-row md:items-center">
-        <img
-          src={authorityLogo}
-          alt="Authority Health Centers"
-          className="h-16 w-auto object-contain"
-        />
-        <div>
-          <h2 className="section-title mb-1">Need help or have questions?</h2>
-          <p className="section-subtitle">
-            Authority Health community health workers and care teams are here to
-            support you.
-          </p>
-        </div>
-      </section>
+    <div>
+      <h2 className="text-xl font-semibold mb-2">Help & Program Info</h2>
+      <p className="text-sm mb-3">
+        Learn more about HaRC Healthy Coolers and how to get support.
+      </p>
 
-      <section className="card space-y-3 text-sm text-slate-700">
-        <h3 className="font-semibold text-slate-800">Contact & support</h3>
-        <p>
-          For help with HaRC Healthy Coolers, food access, or primary care,
-          please contact Authority Health:
+      <h3 className="text-sm font-semibold mb-1">What is HaRC?</h3>
+      <p className="text-sm mb-3">
+        The Healthy & Resilient Communities (HaRC) program connects Detroit
+        residents to healthier food options through Byte coolers, community
+        partners, and care teams focused on Medicaid, Medicare, and primary
+        care access.
+      </p>
+
+      <h3 className="text-sm font-semibold mb-1">Need help with insurance?</h3>
+      <p className="text-sm mb-2">
+        You can ask a community health worker to reach out to you about:
+      </p>
+      <ul className="list-disc list-inside text-sm mb-3">
+        <li>Medicaid or Medicare enrollment or questions</li>
+        <li>Finding a primary care provider</li>
+        <li>Coverage questions and benefits</li>
+      </ul>
+
+      {selectedCooler && (
+        <p className="text-xs mb-2">
+          If you&apos;re at a cooler now, we&apos;ll attach this location to
+          your request: <strong>{selectedCooler.name}</strong>.
         </p>
-        <ul className="list-disc pl-5 text-xs space-y-1">
-          <li>Phone: <span className="font-semibold">313-871-3751</span></li>
-          <li>Website: <a href="https://authorityhealth.org" className="underline text-orange-600" target="_blank" rel="noreferrer">authorityhealth.org</a></li>
-        </ul>
-      </section>
+      )}
 
-      <section className="card space-y-3 text-sm text-slate-700">
-        <h3 className="font-semibold text-slate-800">Connect on social</h3>
-        <p className="text-xs">
-          Follow Authority Health to see updates on HaRC events, healthy food
-          options, and community resources.
-        </p>
+      <Link
+        to="/intake"
+        className="inline-block mt-1 mb-4 px-4 py-2 rounded bg-black text-white text-sm"
+      >
+        Request help with coverage
+      </Link>
 
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={FB_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-          >
-            Facebook
-          </a>
-          <a
-            href={IG_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-          >
-            Instagram
-          </a>
-        </div>
-      </section>
-
-      <section className="card space-y-3 text-xs text-slate-700">
-        <h3 className="font-semibold text-slate-800">Support the mission</h3>
-        <p>
-          Over half of Authority Health patients cannot afford deductibles or
-          copays. Donations help keep care and healthy food initiatives
-          available for the community.
-        </p>
-        <a
-          href={DONATE_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center rounded-full bg-orange-500 px-4 py-1.5 text-xs font-semibold text-white shadow-sm"
-        >
-          Donate to Authority Health
-        </a>
-      </section>
+      <h3 className="text-sm font-semibold mb-1">Technical note</h3>
+      <p className="text-xs">
+        This is a demo application built for testing HaRC workflows. If you run
+        into bugs, please share the time, what you clicked, and what you
+        expected to see so the team can improve the tool.
+      </p>
     </div>
   );
 }
 
-export default Help;
+export default HelpPage;

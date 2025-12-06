@@ -1,55 +1,24 @@
 // src/pages/Confirm.jsx
-import React from "react";
 import { Link } from "react-router-dom";
-import donateBanner from "../assets/authority-donate-banner.jpg";
 
-const DONATE_URL = "https://authorityhealth.org/donate/";
-
-function Confirm() {
+export default function Confirm() {
   return (
-    <div className="space-y-6">
-      <section className="card space-y-3">
-        <h2 className="section-title">Order received</h2>
-        <p className="section-subtitle">
-          Thank you for using a HaRC Healthy Cooler. Your order has been
-          submitted to the cooler — please pick up your items at the machine.
-        </p>
+    <div className="max-w-2xl mx-auto text-center py-20">
+      <h1 className="text-3xl font-bold mb-6 text-harc-orange">
+        Order Submitted!
+      </h1>
 
-        <ul className="list-disc pl-5 text-xs text-slate-700 space-y-1">
-          <li>Go to the selected cooler location.</li>
-          <li>Follow on-screen directions at the machine to retrieve items.</li>
-          <li>
-            Complete the HaRC survey to help improve food options in your
-            neighborhood.
-          </li>
-        </ul>
+      <p className="text-lg mb-8 text-gray-700">
+        Your cooler order has been received. A HaRC team member can now view it
+        in the system.
+      </p>
 
-        <div className="mt-4">
-          <Link
-            to="/coolers"
-            className="inline-flex items-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-sm"
-          >
-            Find another cooler
-          </Link>
-        </div>
-      </section>
-
-      {/* This page owns the donate banner */}
-      <section className="card flex flex-col items-center gap-3 text-center text-xs text-slate-700">
-        <a href={DONATE_URL} target="_blank" rel="noreferrer" className="block">
-          <img
-            src={donateBanner}
-            alt="Authority Health - Donate Now"
-            className="max-h-20 w-auto object-contain"
-          />
-        </a>
-        <p>
-          Donations help Authority Health continue providing care and healthy
-          food access for Detroit residents who need it most.
-        </p>
-      </section>
+      <Link
+        to="/"
+        className="inline-block bg-harc-green text-white px-6 py-3 rounded-xl text-lg font-medium hover:opacity-90 transition"
+      >
+        Return to Home
+      </Link>
     </div>
   );
 }
-
-export default Confirm;
