@@ -1,17 +1,21 @@
+// src/ManagerDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const TABS = ["orders", "help", "restock"];
 
-// "7" = last 7 days, "30" = last 30 days, "all" = everything we loaded
 const DATE_RANGES = [
   { id: "7", label: "Last 7 days" },
   { id: "30", label: "Last 30 days" },
   { id: "all", label: "All recent" },
 ];
 
-// Read manager PIN from environment
-const MANAGER_PIN = import.meta.env.VITE_MANAGER_PIN;
+// PIN comes from env; falls back to 1357 if missing
+const MANAGER_PIN =
+  import.meta.env.VITE_MANAGER_PIN &&
+  import.meta.env.VITE_MANAGER_PIN.toString().trim() !== ""
+    ? import.meta.env.VITE_MANAGER_PIN.toString().trim()
+    : "1357";
 
 const ManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState("orders");
@@ -19,30 +23,26 @@ const ManagerDashboard = () => {
   const [helpRequests, setHelpRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Summary metrics (based on filtered orders)
+  // Summary metrics
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalItems, setTotalItems] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [lastOrderTime, setLastOrderTime] = useState("");
 
-  // Date range + cooler filters
+  // Filters
   const [dateRange, setDateRange] = useState("7");
   const [coolerFilter, setCoolerFilter] = useState("all");
 
-  // Simple manager PIN gate
+  // PIN gate
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
 
-  // Load data only AFTER PIN is unlocked
   useEffect(() => {
-    if (!isUnlocked) return; // don't hit Supabase until access is granted
-
     const loadData = async () => {
       setLoading(true);
-
       try {
-        // Load recent orders (limit 50, newest first)
+        // Orders
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
           .select("*")
@@ -57,7 +57,7 @@ const ManagerDashboard = () => {
         }
         setOrders(safeOrders);
 
-        // Load help / intake (best effort)
+        // Help / intake
         const { data: intakeData, error: intakeError } = await supabase
           .from("intake")
           .select("*")
@@ -80,9 +80,9 @@ const ManagerDashboard = () => {
     };
 
     loadData();
-  }, [isUnlocked]);
+  }, []);
 
-  // Build unique list of cooler IDs from orders
+  // Unique cooler IDs from orders
   const coolerIds = React.useMemo(() => {
     const ids = orders
       .map((o) => o.cooler_id ?? o.cooler ?? null)
@@ -90,13 +90,12 @@ const ManagerDashboard = () => {
     return Array.from(new Set(ids));
   }, [orders]);
 
-  // Apply BOTH filters (date range + cooler)
+  // Apply date + cooler filters
   const filterOrders = (ordersList) => {
     if (!ordersList.length) return [];
 
     let filtered = ordersList;
 
-    // Date range filter
     if (dateRange !== "all") {
       const days = dateRange === "7" ? 7 : 30;
       const now = new Date();
@@ -109,7 +108,6 @@ const ManagerDashboard = () => {
       });
     }
 
-    // Cooler filter
     if (coolerFilter !== "all") {
       filtered = filtered.filter((order) => {
         const cid = order.cooler_id ?? order.cooler ?? null;
@@ -120,10 +118,9 @@ const ManagerDashboard = () => {
     return filtered;
   };
 
-  // Orders actually visible under current filters
   const visibleOrders = filterOrders(orders);
 
-  // Recompute summary metrics whenever filters / orders change
+  // Summary metrics from visibleOrders
   useEffect(() => {
     if (!visibleOrders.length) {
       setTotalOrders(0);
@@ -171,8 +168,7 @@ const ManagerDashboard = () => {
     }
   }, [visibleOrders]);
 
-  // --- MINI TREND: orders per day (based on visibleOrders) ---
-
+  // Orders per day (tiny trend)
   const ordersPerDay = React.useMemo(() => {
     if (!visibleOrders.length) return [];
 
@@ -181,8 +177,7 @@ const ManagerDashboard = () => {
     visibleOrders.forEach((order) => {
       if (!order.created_at) return;
       const d = new Date(order.created_at);
-      // YYYY-MM-DD
-      const key = d.toISOString().slice(0, 10);
+      const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
       const existing = map.get(key) || { date: key, count: 0 };
       existing.count += 1;
       map.set(key, existing);
@@ -201,8 +196,7 @@ const ManagerDashboard = () => {
     );
   }, [ordersPerDay]);
 
-  // --- CSV EXPORT: ORDERS (uses visibleOrders) ---
-
+  // CSV builders
   const buildOrdersCsv = (ordersList) => {
     const header = [
       "order_id",
@@ -278,7 +272,7 @@ const ManagerDashboard = () => {
     const url = URL.createObjectURL(blob);
 
     const now = new Date();
-    const stamp = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const stamp = now.toISOString().slice(0, 10);
 
     let suffix =
       dateRange === "7"
@@ -300,8 +294,6 @@ const ManagerDashboard = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
-  // --- CSV EXPORT: HELP / INTAKE (uses helpRequests) ---
 
   const buildHelpCsv = (helpList) => {
     const header = [
@@ -363,8 +355,7 @@ const ManagerDashboard = () => {
     URL.revokeObjectURL(url);
   };
 
-  // --- RESTOCK AGGREGATION (based on visibleOrders) ---
-
+  // Restock summary from visibleOrders
   const restockSummary = React.useMemo(() => {
     const map = new Map();
 
@@ -385,17 +376,10 @@ const ManagerDashboard = () => {
     return result;
   }, [visibleOrders]);
 
-  // --- PIN HANDLER ---
-
+  // PIN handler
   const handlePinSubmit = (e) => {
     e.preventDefault();
-
-    if (!MANAGER_PIN) {
-      setPinError("Manager PIN is not configured. Please contact admin.");
-      return;
-    }
-
-    if (pin.trim() === String(MANAGER_PIN)) {
+    if (pin === MANAGER_PIN) {
       setIsUnlocked(true);
       setPinError("");
     } else {
@@ -585,8 +569,7 @@ const ManagerDashboard = () => {
     );
   };
 
-  // --- PIN SCREEN (if not unlocked yet) ---
-
+  // PIN screen
   if (!isUnlocked) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 flex items-center justify-center px-4">
@@ -627,8 +610,7 @@ const ManagerDashboard = () => {
     );
   }
 
-  // --- MAIN DASHBOARD (after PIN unlock) ---
-
+  // Main dashboard
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 text-slate-900 flex flex-col">
       {/* Header */}
@@ -682,7 +664,7 @@ const ManagerDashboard = () => {
         </div>
       </section>
 
-      {/* Tiny orders-per-day chart (Orders tab only) */}
+      {/* Tiny orders-per-day chart */}
       {activeTab === "orders" &&
         ordersPerDay.length > 0 &&
         maxOrdersPerDay > 0 && (
@@ -693,7 +675,7 @@ const ManagerDashboard = () => {
             <div className="space-y-1.5">
               {ordersPerDay.map((entry) => {
                 const widthPct = (entry.count / maxOrdersPerDay) * 100;
-                const label = entry.date; // YYYY-MM-DD
+                const label = entry.date;
                 return (
                   <div key={entry.date} className="flex items-center gap-2">
                     <span className="w-[4.5rem] text-[10px] text-slate-600">
