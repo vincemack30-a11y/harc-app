@@ -1,14 +1,17 @@
 // src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
-import { CartProvider } from "./AppContext.jsx";
+
+import App from "./App";
 import "./index.css";
+
+// Wrap the app in our global context provider
+import { AppContextProvider } from "./context/AppContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <CartProvider>
+    <AppContextProvider>
       <App />
-    </CartProvider>
+    </AppContextProvider>
   </React.StrictMode>
 );

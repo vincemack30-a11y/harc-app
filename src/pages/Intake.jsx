@@ -1,145 +1,162 @@
 // src/pages/Intake.jsx
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useAppContext } from "../context/AppContext";
+import supabase from "../supabaseClient";
 
-const API_BASE = import.meta.env.DEV
-  ? "https://harc-r4yekhdui-vincemack30-7988s-projects.vercel.app"
-  : "";
+export default function IntakePage() {
+  const navigate = useNavigate();
+  const { selectedCoolerId, selectedCooler } = useAppContext();
 
-function IntakePage({ selectedCooler }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [needInsurance, setNeedInsurance] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState("");
+  const [needsPrimaryCare, setNeedsPrimaryCare] = useState(true);
+  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | submitting | success | error
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setStatus("");
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (status === "submitting") return;
+
+    setStatus("submitting");
 
     try {
-      const now = new Date().toISOString();
-
+      // Build payload for public_intake_requests table
       const payload = {
-        name: name || null,
-        phone: phone || null,
-        needInsurance,
-        need_insurance: needInsurance, // both versions
-        coolerId: selectedCooler ? selectedCooler.id : null,
-        cooler_id: selectedCooler ? selectedCooler.id : null,
-        createdAt: now,
-        created_at: now,
+        cooler_id: selectedCoolerId || null,
+        phone: phone.trim() || null,
+        needs_primary_care: needsPrimaryCare,
+        source: "harc-app",
       };
 
-      const res = await fetch(`${API_BASE}/api/intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      let data = null;
-      try {
-        data = await res.json();
-      } catch {
-        // ignore JSON parse errors
+      if (notes.trim()) {
+        payload.notes = notes.trim();
       }
 
-      if (!res.ok) {
-        console.error("Intake error:", data || res.statusText);
-        setStatus(
-          "Submission failed. Please check your info or try again in a moment."
-        );
-        setSubmitting(false);
-        return;
+      // Optional: keep name in notes if you want it but don't have a column
+      if (name.trim() && !notes.trim()) {
+        payload.notes = `Name: ${name.trim()}`;
+      } else if (name.trim() && notes.trim()) {
+        payload.notes = `Name: ${name.trim()} — ${notes.trim()}`;
       }
 
-      setStatus(
-        "Thank you! A community health worker will follow up with you soon."
-      );
+      const { error } = await supabase
+        .from("intake_requests")
+        .insert(payload);
+
+      if (error) {
+        console.error("Supabase intake error:", error);
+        throw error;
+      }
+
+      setStatus("success");
       setName("");
       setPhone("");
-      setNeedInsurance(false);
-      setSubmitting(false);
+      setNotes("");
+
+      // Optional: send them back to Home after a short moment
+      setTimeout(() => {
+        navigate("/");
+      }, 1200);
     } catch (err) {
-      console.error("Intake network error:", err);
-      setStatus("Submission failed. Please try again.");
-      setSubmitting(false);
+      console.error("Intake submit error:", err);
+      setStatus("error");
     }
   };
 
+  const isSubmitting = status === "submitting";
+
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-2">
-        Need help with coverage or a doctor?
-      </h2>
-      <p className="text-sm mb-3">
-        Fill this out if you want a community health worker to reach out about
-        Medicaid/Medicare, food help, or finding a primary care provider.
-      </p>
+    <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <section className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-harc-soft p-6 space-y-4">
+        <header className="space-y-2">
+          <h2 className="text-xl font-semibold text-harc-dark">
+            Need help with coverage or a doctor?
+          </h2>
+          <p className="text-sm text-harc-muted leading-relaxed">
+            Fill this out if you want a community health worker to reach out
+            about Medicaid/Medicare, food help, or finding a primary care
+            provider.
+          </p>
 
-      {selectedCooler ? (
-        <p className="text-xs mb-2">
-          Cooler: <strong>{selectedCooler.name}</strong>
-        </p>
-      ) : (
-        <p className="text-xs mb-2 bg-white/60 px-3 py-2 rounded">
-          No cooler selected yet. That&apos;s okay, but if you are at a cooler
-          now you can pick it on the{" "}
-          <Link to="/coolers" className="underline">
-            Coolers
-          </Link>{" "}
-          tab so staff know where this request came from.
-        </p>
-      )}
+          <p className="text-xs text-harc-muted">
+            {selectedCooler
+              ? <>This request will be linked to <span className="font-semibold">{selectedCooler.name}</span>.</>
+              : <>No cooler selected yet. That&apos;s okay — staff can still see and follow up.</>}
+          </p>
+        </header>
 
-      <form onSubmit={handleSubmit} className="text-sm">
-        <div className="mb-2">
-          <label className="block mb-1">Name (optional)</label>
-          <input
-            className="px-2 py-1 rounded border border-gray-400 w-full max-w-xs"
-            placeholder="First name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block text-sm">
+              <span className="text-harc-dark">Name (optional)</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-harc-soft px-3 py-2 text-sm text-harc-dark focus:outline-none focus:ring-2 focus:ring-harc-accent focus:border-harc-accent bg-white"
+                placeholder="First and last name"
+              />
+            </label>
 
-        <div className="mb-2">
-          <label className="block mb-1">Phone (optional)</label>
-          <input
-            className="px-2 py-1 rounded border border-gray-400 w-full max-w-xs"
-            placeholder="Best number to reach you"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
+            <label className="block text-sm">
+              <span className="text-harc-dark">Phone (optional)</span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-harc-soft px-3 py-2 text-sm text-harc-dark focus:outline-none focus:ring-2 focus:ring-harc-accent focus:border-harc-accent bg-white"
+                placeholder="Best number to reach you"
+              />
+            </label>
+          </div>
 
-        <label className="flex items-center mb-3 text-sm">
-          <input
-            type="checkbox"
-            className="mr-2"
-            checked={needInsurance}
-            onChange={(e) => setNeedInsurance(e.target.checked)}
-          />
-          I want help with Medicaid/Medicare or a primary care provider.
-        </label>
+          <label className="block text-sm">
+            <span className="text-harc-dark">
+              What do you need help with? (optional)
+            </span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-harc-soft px-3 py-2 text-sm text-harc-dark focus:outline-none focus:ring-2 focus:ring-harc-accent focus:border-harc-accent bg-white"
+              placeholder="Example: Help with Medicaid, finding a doctor, food, or other support."
+            />
+          </label>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60"
-        >
-          {submitting ? "Submitting..." : "Submit request"}
-        </button>
-      </form>
+          <label className="inline-flex items-center gap-2 text-sm text-harc-dark">
+            <input
+              type="checkbox"
+              checked={needsPrimaryCare}
+              onChange={(e) => setNeedsPrimaryCare(e.target.checked)}
+              className="h-4 w-4 rounded border-harc-soft text-harc-accent focus:ring-harc-accent"
+            />
+            <span>I want help with Medicaid/Medicare or a primary care provider.</span>
+          </label>
 
-      {status && (
-        <p className="mt-3 text-xs bg-white/60 px-3 py-2 rounded">
-          {status}
-        </p>
-      )}
-    </div>
+          <div className="flex items-center gap-4 pt-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2 rounded-full bg-harc-accent text-white text-sm font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Submitting..." : "Submit request"}
+            </button>
+
+            {status === "success" && (
+              <p className="text-xs text-emerald-700">
+                Thanks! A HaRC team member will follow up soon.
+              </p>
+            )}
+
+            {status === "error" && (
+              <p className="text-xs text-red-700">
+                Submission failed. Please try again.
+              </p>
+            )}
+          </div>
+        </form>
+      </section>
+    </main>
   );
 }
-
-export default IntakePage;

@@ -1,185 +1,65 @@
-// src/pages/Staff.jsx
-import React, { useState, useEffect } from "react";
-import { COOLERS } from "../data.js";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 
-function StaffPage() {
-  const [pin, setPin] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+const Staff = () => {
+  const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState("orders"); // "orders" | "intakes"
-  const [coolerId, setCoolerId] = useState(COOLERS[0].id);
-
-  const [orders, setOrders] = useState([]);
-  const [intakes, setIntakes] = useState([]);
-  const [error, setError] = useState("");
-
-  const unlock = () => {
-    if (pin === "1357") {
-      setUnlocked(true);
-      setPin("");
-    } else {
-      alert("Incorrect PIN.");
-    }
+  const goHome = () => {
+    navigate("/");
   };
 
-  // Fetch orders + intakes from Vercel API routes
-  const fetchData = async () => {
-    setError("");
-
-    try {
-      // Orders
-      const orderRes = await fetch(
-        `/api/orders?cooler_id=${encodeURIComponent(coolerId)}`
-      );
-      if (!orderRes.ok) throw new Error("Orders fetch failed");
-      const orderData = await orderRes.json();
-      setOrders(orderData);
-
-      // Intake Requests
-      const intakeRes = await fetch(
-        `/api/intake?cooler_id=${encodeURIComponent(coolerId)}`
-      );
-      if (!intakeRes.ok) throw new Error("Intake fetch failed");
-      const intakeData = await intakeRes.json();
-      setIntakes(intakeData);
-    } catch (err) {
-      console.error(err);
-      setError("Network error. Please check your connection.");
-    }
+  const goManager = () => {
+    navigate("/manager");
   };
 
-  // Refresh every 10 seconds
-  useEffect(() => {
-    if (!unlocked) return;
-
-    fetchData(); // initial load
-
-    const timer = setInterval(() => {
-      fetchData();
-    }, 10000);
-
-    return () => clearInterval(timer);
-  }, [unlocked, coolerId]);
-
-  if (!unlocked) {
-    return (
-      <div>
-        <h2 className="text-xl font-semibold mb-2">HaRC Staff Dashboard</h2>
-        <p className="text-sm mb-4">
-          Internal use only. Enter staff PIN to continue.
-        </p>
-
-        <input
-          type="password"
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          placeholder="PIN"
-          className="border px-3 py-2 text-sm rounded"
-        />
-        <button
-          onClick={unlock}
-          className="ml-2 px-3 py-2 text-sm bg-black text-white rounded"
-        >
-          Unlock
-        </button>
-      </div>
-    );
-  }
+  const goAssist = () => {
+    navigate("/assist");
+  };
 
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-3">HaRC Staff Dashboard</h2>
-      <p className="text-xs mb-4">Internal view — not for public use.</p>
+    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col">
+      {/* Header */}
+      <header className="px-4 pt-6 pb-4 border-b border-slate-800">
+        <p className="text-[10px] uppercase tracking-[0.25em] text-orange-400">
+          HARC Healthy Coolers
+        </p>
+        <h1 className="mt-1 text-xl font-semibold">Staff tools</h1>
+        <p className="mt-1 text-xs text-slate-400">
+          Shortcuts for Authority Health and partner staff working with this
+          cooler location.
+        </p>
+      </header>
 
-      {/* Tabs */}
-      <div className="flex gap-3 mb-3">
+      {/* Content */}
+      <main className="flex-1 px-4 py-4 space-y-4 max-w-md">
         <button
-          onClick={() => setActiveTab("orders")}
-          className={`px-3 py-1 rounded text-sm ${
-            activeTab === "orders"
-              ? "bg-black text-white"
-              : "bg-white border border-black"
-          }`}
+          onClick={goManager}
+          className="w-full rounded-full bg-orange-500 text-black text-sm font-semibold py-3"
         >
-          Orders
+          Open manager dashboard
         </button>
 
         <button
-          onClick={() => setActiveTab("intakes")}
-          className={`px-3 py-1 rounded text-sm ${
-            activeTab === "intakes"
-              ? "bg-black text-white"
-              : "bg-white border border-black"
-          }`}
+          onClick={goAssist}
+          className="w-full rounded-full border border-slate-700 bg-slate-900 text-slate-50 text-sm font-medium py-3"
         >
-          Intake requests
+          Open coverage / navigation tools
         </button>
-      </div>
 
-      {/* Cooler filter */}
-      <label className="text-sm mr-2">Cooler:</label>
-      <select
-        value={coolerId}
-        onChange={(e) => setCoolerId(e.target.value)}
-        className="border px-2 py-1 text-sm rounded"
-      >
-        {COOLERS.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+        <button
+          onClick={goHome}
+          className="w-full rounded-full border border-slate-700 bg-transparent text-slate-200 text-xs py-2"
+        >
+          Back to customer home screen
+        </button>
 
-      {error && (
-        <p className="text-red-600 text-sm mt-3">{error}</p>
-      )}
-
-      {/* Display Data */}
-      <div className="mt-4 text-sm">
-        {activeTab === "orders" ? (
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Orders</h3>
-            {orders.length === 0 ? (
-              <p>No orders found for this cooler.</p>
-            ) : (
-              <ul className="list-disc ml-5">
-                {orders.map((o) => (
-                  <li key={o.id} className="mb-1">
-                    <strong>#{o.id.slice(0, 8)}</strong> —{" "}
-                    {o.items.map((i) => `${i.name} x${i.qty}`).join(", ")} —{" "}
-                    Total: ${o.total} —{" "}
-                    {new Date(o.created_at).toLocaleString()}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : (
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Intake Requests</h3>
-            {intakes.length === 0 ? (
-              <p>No intake requests for this cooler.</p>
-            ) : (
-              <ul className="list-disc ml-5">
-                {intakes.map((i) => (
-                  <li key={i.id} className="mb-1">
-                    <strong>#{i.id.slice(0, 8)}</strong> — {i.name || "No name"},{" "}
-                    {i.phone || "No phone"} — Need help:{" "}
-                    {i.need_insurance ? "Yes" : "No"} —{" "}
-                    {new Date(i.created_at).toLocaleString()}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
-
-      <p className="text-[11px] mt-6 text-black/70">
-        Demo workflow for Authority Health HaRC — Not for real patient data.
-      </p>
+        <p className="mt-4 text-[11px] text-slate-500">
+          Tip: Bookmark this page on staff tablets or phones to quickly access
+          dashboard tools while working in the field.
+        </p>
+      </main>
     </div>
   );
-}
+};
 
-export default StaffPage;
+export default Staff;

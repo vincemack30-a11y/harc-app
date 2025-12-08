@@ -1,230 +1,810 @@
-// src/ManagerDashboard.jsx
 import React, { useEffect, useState } from "react";
-import supabase from "./supabaseClient.js";
+import { supabase } from "./supabaseClient";
 
-// Format timestamp into something readable
-function formatDate(value) {
-  if (!value) return "";
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
-}
+const TABS = ["orders", "help", "restock"];
 
-// Turn the JSON items array into "2× Fruit Cup, 1× Yogurt" text
-function formatOrderItems(items) {
-  if (!Array.isArray(items) || items.length === 0) return "—";
-  return items.map((item) => `${item.qty}× ${item.name}`).join(", ");
-}
+// "7" = last 7 days, "30" = last 30 days, "all" = everything we loaded
+const DATE_RANGES = [
+  { id: "7", label: "Last 7 days" },
+  { id: "30", label: "Last 30 days" },
+  { id: "all", label: "All recent" },
+];
 
-function ManagerDashboard() {
+// Read manager PIN from environment
+const MANAGER_PIN = import.meta.env.VITE_MANAGER_PIN;
+
+const ManagerDashboard = () => {
+  const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
-  const [intakes, setIntakes] = useState([]);
+  const [helpRequests, setHelpRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
 
-  async function loadData({ isRefresh = false } = {}) {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
+  // Summary metrics (based on filtered orders)
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [lastOrderTime, setLastOrderTime] = useState("");
+
+  // Date range + cooler filters
+  const [dateRange, setDateRange] = useState("7");
+  const [coolerFilter, setCoolerFilter] = useState("all");
+
+  // Simple manager PIN gate
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
+
+  // Load data only AFTER PIN is unlocked
+  useEffect(() => {
+    if (!isUnlocked) return; // don't hit Supabase until access is granted
+
+    const loadData = async () => {
       setLoading(true);
+
+      try {
+        // Load recent orders (limit 50, newest first)
+        const { data: ordersData, error: ordersError } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        let safeOrders = [];
+        if (ordersError) {
+          console.error("ManagerDashboard orders error:", ordersError);
+        } else if (ordersData) {
+          safeOrders = ordersData;
+        }
+        setOrders(safeOrders);
+
+        // Load help / intake (best effort)
+        const { data: intakeData, error: intakeError } = await supabase
+          .from("intake")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (intakeError) {
+          console.error("ManagerDashboard intake error:", intakeError);
+          setHelpRequests([]);
+        } else {
+          setHelpRequests(intakeData || []);
+        }
+      } catch (err) {
+        console.error("ManagerDashboard unexpected error:", err);
+        setOrders([]);
+        setHelpRequests([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [isUnlocked]);
+
+  // Build unique list of cooler IDs from orders
+  const coolerIds = React.useMemo(() => {
+    const ids = orders
+      .map((o) => o.cooler_id ?? o.cooler ?? null)
+      .filter(Boolean);
+    return Array.from(new Set(ids));
+  }, [orders]);
+
+  // Apply BOTH filters (date range + cooler)
+  const filterOrders = (ordersList) => {
+    if (!ordersList.length) return [];
+
+    let filtered = ordersList;
+
+    // Date range filter
+    if (dateRange !== "all") {
+      const days = dateRange === "7" ? 7 : 30;
+      const now = new Date();
+      const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+      filtered = filtered.filter((order) => {
+        if (!order.created_at) return false;
+        const created = new Date(order.created_at);
+        return created >= cutoff;
+      });
     }
-    setError("");
 
-    try {
-      // Get recent orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select("id, created_at, cooler_id, items, total")
-        .order("created_at", { ascending: false })
-        .limit(30);
+    // Cooler filter
+    if (coolerFilter !== "all") {
+      filtered = filtered.filter((order) => {
+        const cid = order.cooler_id ?? order.cooler ?? null;
+        return cid === coolerFilter;
+      });
+    }
 
-      if (ordersError) throw ordersError;
+    return filtered;
+  };
 
-      // Get recent intake / help requests
-      const { data: intakeData, error: intakeError } = await supabase
-        .from("intake_requests")
-        .select("id, created_at, cooler_id, phone, notes, needs_primary_care")
-        .order("created_at", { ascending: false })
-        .limit(30);
+  // Orders actually visible under current filters
+  const visibleOrders = filterOrders(orders);
 
-      if (intakeError) throw intakeError;
+  // Recompute summary metrics whenever filters / orders change
+  useEffect(() => {
+    if (!visibleOrders.length) {
+      setTotalOrders(0);
+      setTotalItems(0);
+      setTotalRevenue(0);
+      setLastOrderTime("");
+      return;
+    }
 
-      setOrders(ordersData || []);
-      setIntakes(intakeData || []);
-    } catch (err) {
-      console.error("Manager dashboard load error:", err);
-      setError(
-        "Could not load data from Supabase. Check your connection and try again."
+    const numOrders = visibleOrders.length;
+    let itemsCount = 0;
+    let revenue = 0;
+
+    visibleOrders.forEach((order) => {
+      const itemsArray = Array.isArray(order.items) ? order.items : [];
+      const orderItemsCount =
+        typeof order.total_items === "number"
+          ? order.total_items
+          : itemsArray.reduce(
+              (sum, item) => sum + (Number(item.qty) || 1),
+              0
+            );
+      itemsCount += orderItemsCount;
+
+      if (order.subtotal !== undefined && order.subtotal !== null) {
+        const n = Number(order.subtotal);
+        if (!Number.isNaN(n)) revenue += n;
+      }
+    });
+
+    setTotalOrders(numOrders);
+    setTotalItems(itemsCount);
+    setTotalRevenue(revenue);
+
+    const latest = visibleOrders[0];
+    if (latest?.created_at) {
+      setLastOrderTime(
+        new Date(latest.created_at).toLocaleString(undefined, {
+          dateStyle: "short",
+          timeStyle: "short",
+        })
       );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } else {
+      setLastOrderTime("");
     }
+  }, [visibleOrders]);
+
+  // --- MINI TREND: orders per day (based on visibleOrders) ---
+
+  const ordersPerDay = React.useMemo(() => {
+    if (!visibleOrders.length) return [];
+
+    const map = new Map();
+
+    visibleOrders.forEach((order) => {
+      if (!order.created_at) return;
+      const d = new Date(order.created_at);
+      // YYYY-MM-DD
+      const key = d.toISOString().slice(0, 10);
+      const existing = map.get(key) || { date: key, count: 0 };
+      existing.count += 1;
+      map.set(key, existing);
+    });
+
+    const result = Array.from(map.values());
+    result.sort((a, b) => (a.date > b.date ? 1 : -1));
+    return result;
+  }, [visibleOrders]);
+
+  const maxOrdersPerDay = React.useMemo(() => {
+    if (!ordersPerDay.length) return 0;
+    return ordersPerDay.reduce(
+      (max, entry) => (entry.count > max ? entry.count : max),
+      0
+    );
+  }, [ordersPerDay]);
+
+  // --- CSV EXPORT: ORDERS (uses visibleOrders) ---
+
+  const buildOrdersCsv = (ordersList) => {
+    const header = [
+      "order_id",
+      "created_at",
+      "cooler_id",
+      "total_items",
+      "subtotal",
+      "items_summary",
+    ];
+
+    const rows = ordersList.map((order) => {
+      const created = order.created_at || "";
+      const itemsArray = Array.isArray(order.items) ? order.items : [];
+
+      const orderItemsCount =
+        typeof order.total_items === "number"
+          ? order.total_items
+          : itemsArray.reduce(
+              (sum, item) => sum + (Number(item.qty) || 1),
+              0
+            );
+
+      const subtotal =
+        order.subtotal !== undefined && order.subtotal !== null
+          ? Number(order.subtotal).toFixed(2)
+          : "";
+
+      const itemsSummary = itemsArray
+        .map((item) => {
+          const qty = item.qty || 1;
+          const name = item.name || "Item";
+          return `${qty}x ${name}`;
+        })
+        .join("; ");
+
+      const coolerId = order.cooler_id ?? order.cooler ?? "";
+
+      const raw = [
+        order.id ?? "",
+        created,
+        coolerId,
+        orderItemsCount,
+        subtotal,
+        itemsSummary,
+      ];
+
+      return raw
+        .map((field) => {
+          const str = String(field ?? "");
+          if (str.includes('"')) {
+            const escaped = str.replace(/"/g, '""');
+            return `"${escaped}"`;
+          }
+          if (str.includes(",") || str.includes(";")) {
+            return `"${str}"`;
+          }
+          return str;
+        })
+        .join(",");
+    });
+
+    return [header.join(","), ...rows].join("\n");
+  };
+
+  const handleDownloadOrdersCsv = () => {
+    if (!visibleOrders.length) {
+      alert("No orders in this filter to export yet.");
+      return;
+    }
+
+    const csvString = buildOrdersCsv(visibleOrders);
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const stamp = now.toISOString().slice(0, 10); // YYYY-MM-DD
+
+    let suffix =
+      dateRange === "7"
+        ? "last7days"
+        : dateRange === "30"
+        ? "last30days"
+        : "allrecent";
+
+    if (coolerFilter !== "all") {
+      suffix = `${suffix}_cooler-${coolerFilter}`;
+    }
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `harc_orders_${suffix}_${stamp}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // --- CSV EXPORT: HELP / INTAKE (uses helpRequests) ---
+
+  const buildHelpCsv = (helpList) => {
+    const header = [
+      "id",
+      "created_at",
+      "full_name",
+      "phone",
+      "insurance_type",
+      "note_or_comments",
+    ];
+
+    const rows = helpList.map((req) => {
+      const created = req.created_at || "";
+      const name = req.full_name || req.name || "";
+      const phone = req.phone || "";
+      const insurance = req.insurance_type || "";
+      const note = req.note || req.comments || "";
+
+      const raw = [req.id ?? "", created, name, phone, insurance, note];
+
+      return raw
+        .map((field) => {
+          const str = String(field ?? "");
+          if (str.includes('"')) {
+            const escaped = str.replace(/"/g, '""');
+            return `"${escaped}"`;
+          }
+          if (str.includes(",") || str.includes(";") || str.includes("\n")) {
+            return `"${str}"`;
+          }
+          return str;
+        })
+        .join(",");
+    });
+
+    return [header.join(","), ...rows].join("\n");
+  };
+
+  const handleDownloadHelpCsv = () => {
+    if (!helpRequests.length) {
+      alert("No help / coverage requests to export yet.");
+      return;
+    }
+
+    const csvString = buildHelpCsv(helpRequests);
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const stamp = now.toISOString().slice(0, 10);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `harc_help_requests_${stamp}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // --- RESTOCK AGGREGATION (based on visibleOrders) ---
+
+  const restockSummary = React.useMemo(() => {
+    const map = new Map();
+
+    visibleOrders.forEach((order) => {
+      const itemsArray = Array.isArray(order.items) ? order.items : [];
+      itemsArray.forEach((item) => {
+        const name = item.name || "Item";
+        const qty = Number(item.qty) || 1;
+
+        const existing = map.get(name) || { name, sold: 0 };
+        existing.sold += qty;
+        map.set(name, existing);
+      });
+    });
+
+    const result = Array.from(map.values());
+    result.sort((a, b) => b.sold - a.sold);
+    return result;
+  }, [visibleOrders]);
+
+  // --- PIN HANDLER ---
+
+  const handlePinSubmit = (e) => {
+    e.preventDefault();
+
+    if (!MANAGER_PIN) {
+      setPinError("Manager PIN is not configured. Please contact admin.");
+      return;
+    }
+
+    if (pin.trim() === String(MANAGER_PIN)) {
+      setIsUnlocked(true);
+      setPinError("");
+    } else {
+      setPinError("Incorrect PIN. Try again.");
+    }
+  };
+
+  // --- RENDER HELPERS ---
+
+  const renderOrders = () => {
+    if (!visibleOrders.length) {
+      return (
+        <p className="text-sm text-slate-600">
+          No orders in this filter yet. Try expanding the date range or
+          selecting &quot;All coolers&quot;, or place a test order from the
+          customer screen.
+        </p>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {visibleOrders.map((order) => {
+          const created =
+            order.created_at &&
+            new Date(order.created_at).toLocaleString(undefined, {
+              dateStyle: "short",
+              timeStyle: "short",
+            });
+
+          const itemsArray = Array.isArray(order.items) ? order.items : [];
+          const itemSummary = itemsArray
+            .map((i) => `${i.qty || 1}× ${i.name || "Item"}`)
+            .join(", ");
+
+          const subtotalNumber =
+            order.subtotal !== undefined && order.subtotal !== null
+              ? Number(order.subtotal)
+              : null;
+
+          const orderItemsCount =
+            typeof order.total_items === "number"
+              ? order.total_items
+              : itemsArray.reduce(
+                  (sum, item) => sum + (Number(item.qty) || 1),
+                  0
+                );
+
+          const coolerId = order.cooler_id ?? order.cooler ?? "—";
+
+          return (
+            <div
+              key={order.id}
+              className="border border-slate-200 rounded-2xl bg-white/80 p-3 text-sm"
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-semibold text-slate-900">
+                  Order #{order.id?.toString().slice(-6) || "—"}
+                </span>
+                <span className="text-[11px] text-slate-500">{created}</span>
+              </div>
+
+              <p className="text-[11px] text-slate-500 mb-1">
+                Cooler: <span className="font-medium">{coolerId}</span>
+              </p>
+
+              <p className="text-xs text-slate-600 mb-1">
+                Items: {itemSummary || "—"}
+              </p>
+
+              <div className="flex justify-between text-xs text-slate-700">
+                <span>Total items: {orderItemsCount}</span>
+                <span>
+                  Est. total: $
+                  {subtotalNumber !== null
+                    ? subtotalNumber.toFixed(2)
+                    : "—"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderHelp = () => {
+    if (!helpRequests.length) {
+      return (
+        <p className="text-sm text-slate-600">
+          No recent help or coverage requests yet.
+        </p>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {helpRequests.map((req) => {
+          const created =
+            req.created_at &&
+            new Date(req.created_at).toLocaleString(undefined, {
+              dateStyle: "short",
+              timeStyle: "short",
+            });
+
+          return (
+            <div
+              key={req.id}
+              className="border border-slate-200 rounded-2xl bg-white/80 p-3 text-sm"
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-semibold text-slate-900">
+                  {req.full_name || req.name || "Unknown"}
+                </span>
+                <span className="text-[11px] text-slate-500">{created}</span>
+              </div>
+
+              {req.phone && (
+                <p className="text-xs text-slate-700 mb-1">
+                  Phone: {req.phone}
+                </p>
+              )}
+
+              {req.insurance_type && (
+                <p className="text-xs text-slate-700">
+                  Coverage: {req.insurance_type}
+                </p>
+              )}
+
+              {req.note || req.comments ? (
+                <p className="text-xs text-slate-600 mt-1">
+                  Notes: {req.note || req.comments}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderRestock = () => {
+    if (!visibleOrders.length || !restockSummary.length) {
+      return (
+        <p className="text-sm text-slate-600">
+          No sales in this filter yet. Pick a wider date range or &quot;All
+          coolers&quot; to see restock guidance.
+        </p>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-slate-600 mb-1">
+          Based on the selected date range and cooler filter, this shows how
+          many units of each item were sold. Use this as a quick guide for how
+          much to restock.
+        </p>
+
+        {restockSummary.map((entry) => {
+          const sold = entry.sold;
+          const suggested = Math.max(4, Math.ceil(sold * 1.3));
+
+          return (
+            <div
+              key={entry.name}
+              className="border border-slate-200 rounded-2xl bg-white/80 p-3 text-sm"
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-semibold text-slate-900">
+                  {entry.name}
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Units sold: {sold}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-700">
+                Suggested restock:{" "}
+                <span className="font-semibold">{suggested}</span> units
+                (sold + buffer).
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // --- PIN SCREEN (if not unlocked yet) ---
+
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm rounded-3xl bg-white/90 border border-orange-200 shadow-md p-6">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-orange-500">
+            HARC HEALTHY COOLERS
+          </p>
+          <h1 className="mt-2 text-lg font-semibold text-slate-900">
+            Manager access
+          </h1>
+          <p className="mt-1 text-xs text-slate-600">
+            Enter the staff PIN to view orders, coverage requests, and restock
+            guidance.
+          </p>
+
+          <form onSubmit={handlePinSubmit} className="mt-4 space-y-3">
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-400"
+              placeholder="Enter PIN"
+            />
+            {pinError && (
+              <p className="text-[11px] text-red-500">{pinError}</p>
+            )}
+            <button
+              type="submit"
+              className="w-full rounded-2xl bg-orange-500 text-black text-sm font-semibold py-2"
+            >
+              Unlock dashboard
+            </button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Simple stats
-  const totalOrderCount = orders.length;
-  const intakeCount = intakes.length;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const todayOrders = orders.filter((o) =>
-    (o.created_at || "").startsWith(today)
-  );
-  const todayIntakes = intakes.filter((i) =>
-    (i.created_at || "").startsWith(today)
-  );
+  // --- MAIN DASHBOARD (after PIN unlock) ---
 
   return (
-    <div className="manager-dashboard">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Manager dashboard</h2>
-        <button
-          type="button"
-          onClick={() => loadData({ isRefresh: true })}
-          disabled={refreshing || loading}
-          className="border px-3 py-1 rounded bg-white hover:bg-gray-100 text-sm"
-        >
-          {refreshing || loading ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
-
-      <p className="text-sm mb-4">
-        Quick view of recent orders and help requests from the HaRC Healthy
-        Coolers app.
-      </p>
+    <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 text-slate-900 flex flex-col">
+      {/* Header */}
+      <header className="px-4 pt-6 pb-4 border-b border-orange-200/60">
+        <p className="text-[10px] uppercase tracking-[0.25em] text-orange-500">
+          HARC HEALTHY COOLERS
+        </p>
+        <h1 className="mt-1 text-xl font-semibold">Manager dashboard</h1>
+        <p className="mt-1 text-xs text-slate-600">
+          View recent orders, coverage / help requests, and restock guidance for
+          this cooler network.
+        </p>
+      </header>
 
       {/* Summary cards */}
-      <div
-        className="grid gap-4 mb-6"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}
-      >
-        <div className="border rounded p-3 bg-white/70">
-          <div className="text-xs uppercase tracking-wide text-gray-600">
-            Orders (last 30)
-          </div>
-          <div className="text-2xl font-semibold">{totalOrderCount}</div>
-          <div className="text-xs text-gray-700">{todayOrders.length} today</div>
+      <section className="px-4 pt-3 grid grid-cols-2 gap-3 text-xs">
+        <div className="rounded-2xl bg-white/80 border border-orange-200 p-3">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">
+            Total orders
+          </p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">
+            {totalOrders}
+          </p>
         </div>
 
-        <div className="border rounded p-3 bg-white/70">
-          <div className="text-xs uppercase tracking-wide text-gray-600">
-            Help requests (last 30)
-          </div>
-          <div className="text-2xl font-semibold">{intakeCount}</div>
-          <div className="text-xs text-gray-700">
-            {todayIntakes.length} today
-          </div>
+        <div className="rounded-2xl bg-white/80 border border-orange-200 p-3">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">
+            Total items
+          </p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">
+            {totalItems}
+          </p>
         </div>
+
+        <div className="rounded-2xl bg-white/80 border border-orange-200 p-3">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">
+            Est. revenue
+          </p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">
+            ${totalRevenue.toFixed(2)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-white/80 border border-orange-200 p-3">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">
+            Last order
+          </p>
+          <p className="mt-1 text-[11px] font-medium text-slate-900">
+            {lastOrderTime || "—"}
+          </p>
+        </div>
+      </section>
+
+      {/* Tiny orders-per-day chart (Orders tab only) */}
+      {activeTab === "orders" &&
+        ordersPerDay.length > 0 &&
+        maxOrdersPerDay > 0 && (
+          <section className="px-4 pt-3 pb-1 text-[11px]">
+            <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">
+              Orders per day (filtered)
+            </p>
+            <div className="space-y-1.5">
+              {ordersPerDay.map((entry) => {
+                const widthPct = (entry.count / maxOrdersPerDay) * 100;
+                const label = entry.date; // YYYY-MM-DD
+                return (
+                  <div key={entry.date} className="flex items-center gap-2">
+                    <span className="w-[4.5rem] text-[10px] text-slate-600">
+                      {label}
+                    </span>
+                    <div className="flex-1 h-2 rounded-full bg-orange-100 overflow-hidden">
+                      <div
+                        className="h-2 rounded-full bg-orange-500"
+                        style={{ width: `${widthPct}%` }}
+                      />
+                    </div>
+                    <span className="w-6 text-[10px] text-right text-slate-700">
+                      {entry.count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+      {/* Tabs + filters + CSV row */}
+      <div className="px-4 pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex gap-2">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1.5 rounded-full border ${
+                activeTab === tab
+                  ? "bg-orange-500 text-black border-orange-500"
+                  : "border-slate-300 text-slate-700 bg-white/70"
+              }`}
+            >
+              {tab === "orders"
+                ? "Recent orders"
+                : tab === "help"
+                ? "Help / coverage"
+                : "Restock guide"}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "orders" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-full bg-white/60 border border-slate-300 overflow-hidden">
+              {DATE_RANGES.map((range) => (
+                <button
+                  key={range.id}
+                  onClick={() => setDateRange(range.id)}
+                  className={`px-2.5 py-1 text-[10px] ${
+                    dateRange === range.id
+                      ? "bg-orange-500 text-black"
+                      : "text-slate-700"
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+
+            {coolerIds.length > 0 && (
+              <select
+                value={coolerFilter}
+                onChange={(e) => setCoolerFilter(e.target.value)}
+                className="text-[11px] border border-slate-300 rounded-full bg-white/80 px-2 py-1"
+              >
+                <option value="all">All coolers</option>
+                {coolerIds.map((id) => (
+                  <option key={id} value={id}>
+                    Cooler {id}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <button
+              onClick={handleDownloadOrdersCsv}
+              className="px-3 py-1.5 rounded-full border border-slate-300 bg-white/80 text-[11px] font-medium text-slate-800"
+            >
+              Download CSV
+            </button>
+          </div>
+        )}
+
+        {activeTab === "help" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleDownloadHelpCsv}
+              className="px-3 py-1.5 rounded-full border border-slate-300 bg-white/80 text-[11px] font-medium text-slate-800"
+            >
+              Download help CSV
+            </button>
+          </div>
+        )}
       </div>
 
-      {error && (
-        <div className="mb-4 border border-red-400 bg-red-50 text-red-800 px-3 py-2 rounded text-sm">
-          {error}
-        </div>
-      )}
-
-      {loading && !refreshing ? (
-        <p>Loading manager data…</p>
-      ) : (
-        <>
-          {/* Orders table */}
-          <section className="mb-6">
-            <h3 className="font-semibold mb-2">Recent orders</h3>
-            {orders.length === 0 ? (
-              <p className="text-sm text-gray-700">No orders yet.</p>
-            ) : (
-              <div className="overflow-auto border rounded bg-white/80">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-2 py-1 text-left">Time</th>
-                      <th className="px-2 py-1 text-left">Cooler</th>
-                      <th className="px-2 py-1 text-left">Items</th>
-                      <th className="px-2 py-1 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order) => (
-                      <tr key={order.id} className="border-t">
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {formatDate(order.created_at)}
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {order.cooler_id || "—"}
-                        </td>
-                        <td className="px-2 py-1">
-                          {formatOrderItems(order.items)}
-                        </td>
-                        <td className="px-2 py-1 text-right">
-                          {typeof order.total === "number"
-                            ? `$${order.total.toFixed(2)}`
-                            : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          {/* Intake / help requests table */}
-          <section>
-            <h3 className="font-semibold mb-2">
-              Recent help / coverage requests
-            </h3>
-            {intakes.length === 0 ? (
-              <p className="text-sm text-gray-700">No help requests yet.</p>
-            ) : (
-              <div className="overflow-auto border rounded bg-white/80">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-2 py-1 text-left">Time</th>
-                      <th className="px-2 py-1 text-left">Cooler</th>
-                      <th className="px-2 py-1 text-left">Phone</th>
-                      <th className="px-2 py-1 text-left">
-                        Needs primary care?
-                      </th>
-                      <th className="px-2 py-1 text-left">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {intakes.map((req) => (
-                      <tr key={req.id} className="border-t align-top">
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {formatDate(req.created_at)}
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {req.cooler_id || "—"}
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {req.phone || "—"}
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {req.needs_primary_care
-                            ? "Yes"
-                            : "No / not checked"}
-                        </td>
-                        <td className="px-2 py-1">{req.notes || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </>
-      )}
+      {/* Content */}
+      <main className="flex-1 px-4 py-4">
+        {loading ? (
+          <p className="text-sm text-slate-600">Loading dashboard…</p>
+        ) : activeTab === "orders" ? (
+          renderOrders()
+        ) : activeTab === "help" ? (
+          renderHelp()
+        ) : (
+          renderRestock()
+        )}
+      </main>
     </div>
   );
-}
+};
 
 export default ManagerDashboard;

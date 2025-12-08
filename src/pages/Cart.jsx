@@ -1,128 +1,121 @@
-// src/pages/Cart.jsx
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
 
-// When running locally (vite dev), call the live Vercel API.
-// In production (on Vercel), keep it relative (/api/...).
-const API_BASE = import.meta.env.DEV
-  ? "https://harc-r4yekhdui-vincemack30-7988s-projects.vercel.app"
-  : "";
-
-function CartPage({ cart, setCart, selectedCooler, onOrderComplete }) {
+const Cart = () => {
   const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const { state } = useLocation();
 
-  const total = useMemo(
-    () => cart.reduce((sum, item) => sum + item.price * item.qty, 0),
-    [cart]
-  );
+  // If user hits Cart directly with no state, bounce them back
+  if (!state || !state.cart || state.cart.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center justify-center">
+        <p className="text-sm mb-4">Your cart is empty.</p>
+        <button
+          className="px-4 py-2 bg-orange-500 text-black rounded-full text-sm"
+          onClick={() => navigate("/menu")}
+        >
+          Return to Menu
+        </button>
+      </div>
+    );
+  }
 
-  const handleSubmit = async () => {
-    if (cart.length === 0) return;
+  const cart = state.cart;
+  const subtotal = state.subtotal;
+  const totalItems = state.totalItems;
+  const coolerId = state.coolerId ?? null; // will be null for now unless you pass one
 
-    setSubmitting(true);
-    setErrorMsg("");
-
+  const handleSubmitOrder = async () => {
     try {
-      const now = new Date().toISOString();
-
-      // Send BOTH camelCase and snake_case so whatever the API expects will work
+      // ONLY send fields that exist in your Supabase "orders" table.
+      // From the error, there is no "subtotal" column, so we DON'T send it.
       const payload = {
-        items: cart,
-        total,
-        coolerId: selectedCooler ? selectedCooler.id : null,
-        cooler_id: selectedCooler ? selectedCooler.id : null,
-        createdAt: now,
-        created_at: now,
+        items: cart,       // JSONB column in orders table
+        cooler_id: coolerId, // optional if your table has this (ok if column is nullable)
+        // created_at will use the default in Supabase if you have one
       };
 
-      const res = await fetch(`${API_BASE}/api/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const { error } = await supabase.from("orders").insert([payload]);
 
-      let data = null;
-      try {
-        data = await res.json();
-      } catch {
-        // if body isn't JSON, keep data = null
-      }
-
-      if (!res.ok) {
-        console.error("Order submit error:", data || res.statusText);
-        setErrorMsg(
-          "There was a problem sending your order. Please try again."
-        );
-        setSubmitting(false);
+      if (error) {
+        console.error("Supabase order insert error:", error);
+        alert(`Order failed to submit. ${error.message || "Please try again."}`);
         return;
       }
 
-      // Save last order for confirmation screen
-      const orderData = data && data.order ? data.order : payload;
-      onOrderComplete(orderData);
-
-      // Clear cart
-      setCart([]);
-
-      // Go to confirmation page
-      navigate("/order-confirmation");
+      // Frontend can still show subtotal + count, even if DB doesn't store them yet
+      navigate("/confirmation", {
+        state: {
+          totalItems,
+          subtotal,
+        },
+      });
     } catch (err) {
-      console.error("Order submit network error:", err);
-      setErrorMsg("Something went wrong. Please try again.");
-      setSubmitting(false);
+      console.error("Unexpected order submit error:", err);
+      alert("Order failed due to an unexpected error. Please try again.");
     }
   };
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-2">Your cart</h2>
+    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col">
+      {/* Header */}
+      <header className="px-4 py-4 border-b border-slate-800 flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Your Cart</h1>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-xs border border-slate-700 px-3 py-1 rounded-full"
+        >
+          Back
+        </button>
+      </header>
 
-      {selectedCooler ? (
-        <p className="text-xs mb-2">
-          Cooler: <strong>{selectedCooler.name}</strong>
-        </p>
-      ) : (
-        <p className="text-xs mb-2">
-          No cooler selected. You can still place an order, but staff may ask
-          which location you’re at.
-        </p>
-      )}
+      {/* Items */}
+      <main className="flex-1 px-4 py-4 space-y-4">
+        {cart.map((item) => {
+          const unitPrice =
+            typeof item.price === "string"
+              ? parseFloat(item.price)
+              : item.price || 0;
 
-      {cart.length === 0 ? (
-        <p className="mt-3 text-sm">Your cart is empty.</p>
-      ) : (
-        <>
-          <ul className="mb-3 text-sm">
-            {cart.map((item) => (
-              <li key={item.id} className="flex justify-between mb-1">
-                <span>
-                  {item.name} × {item.qty}
-                </span>
-                <span>${(item.price * item.qty).toFixed(2)}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="font-semibold mb-3 text-sm">
-            Total: ${total.toFixed(2)}
+          return (
+            <div
+              key={item.id ?? item.name}
+              className="border border-slate-800 rounded-2xl p-4 flex justify-between items-center"
+            >
+              <div>
+                <p className="text-sm font-semibold">{item.name}</p>
+                <p className="text-xs text-slate-400">
+                  {item.qty} × ${unitPrice.toFixed(2)}
+                </p>
+              </div>
+              <p className="text-orange-400 font-semibold">
+                {(unitPrice * (item.qty || 1)).toFixed(2)}
+              </p>
+            </div>
+          );
+        })}
+
+        {/* Summary (frontend only) */}
+        <div className="border border-slate-800 rounded-2xl p-4 space-y-1">
+          <p className="text-sm">Items: {totalItems}</p>
+          <p className="text-sm font-semibold text-orange-400">
+            Total: ${subtotal.toFixed(2)}
           </p>
+        </div>
+      </main>
 
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60"
-          >
-            {submitting ? "Sending order..." : "Submit order & show to staff"}
-          </button>
-
-          {errorMsg && (
-            <p className="text-xs text-red-800 mt-2">{errorMsg}</p>
-          )}
-        </>
-      )}
+      {/* Checkout Button */}
+      <footer className="px-4 pb-6">
+        <button
+          onClick={handleSubmitOrder}
+          className="w-full bg-orange-500 text-black font-semibold py-3 rounded-full text-sm"
+        >
+          Submit Order
+        </button>
+      </footer>
     </div>
   );
-}
+};
 
-export default CartPage;
+export default Cart;

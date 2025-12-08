@@ -1,39 +1,71 @@
 // src/data.js
 
-// Coolers configured for the app
+// Example cooler locations for HaRC
 export const COOLERS = [
   {
-    id: "seven-mile-evergreen",
-    name: "Seven Mile & Evergreen",
+    id: "cooler_1",
+    name: "HaRC Cooler – Family Health Center (East Warren)",
+    address: "1234 E Warren Ave, Detroit, MI",
   },
   {
-    id: "warren-conner",
-    name: "Warren & Conner",
+    id: "cooler_2",
+    name: "HaRC Cooler – Corner Market (Jefferson)",
+    address: "2200 E Jefferson Ave, Detroit, MI",
+  },
+  {
+    id: "cooler_3",
+    name: "HaRC Cooler – Community Library (Gratiot)",
+    address: "8900 Gratiot Ave, Detroit, MI",
   },
 ];
 
-// Menu items mapped to coolerId
+// Menu items; each one is mapped to a coolerId above
 export const MENU = [
+  // Cooler 1 items
   {
-    id: "fresh-fruit-cup",
-    coolerId: "seven-mile-evergreen",
+    id: "item_1",
+    coolerId: "cooler_1",
+    name: "Turkey & Veggie Wrap",
+    price: 5.5,
+  },
+  {
+    id: "item_2",
+    coolerId: "cooler_1",
     name: "Fresh Fruit Cup",
     price: 3.0,
-    inStock: true,
   },
   {
-    id: "yogurt-parfait",
-    coolerId: "seven-mile-evergreen",
-    name: "Yogurt Parfait",
-    price: 4.0,
-    inStock: true,
+    id: "item_3",
+    coolerId: "cooler_1",
+    name: "Low-Sugar Yogurt",
+    price: 2.75,
+  },
+
+  // Cooler 2 items
+  {
+    id: "item_4",
+    coolerId: "cooler_2",
+    name: "Grilled Chicken Salad",
+    price: 6.0,
   },
   {
-    id: "turkey-swiss-wrap",
-    coolerId: "seven-mile-evergreen",
-    name: "Turkey & Swiss Wrap",
-    price: 8.0,
-    inStock: true,
+    id: "item_5",
+    coolerId: "cooler_2",
+    name: "Veggie Snack Pack",
+    price: 3.25,
   },
-  // You can add items for Warren & Conner later if you want
+
+  // Cooler 3 items
+  {
+    id: "item_6",
+    coolerId: "cooler_3",
+    name: "Hummus & Whole Grain Pita",
+    price: 4.5,
+  },
+  {
+    id: "item_7",
+    coolerId: "cooler_3",
+    name: "Bottled Water",
+    price: 1.5,
+  },
 ];

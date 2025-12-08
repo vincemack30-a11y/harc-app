@@ -10,11 +10,6 @@ const Survey = () => {
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const finishAndGoHome = () => {
-    setIsSubmitting(false);
-    navigate("/", { state: { feedbackComplete: true } });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -26,6 +21,8 @@ const Survey = () => {
     setIsSubmitting(true);
 
     try {
+      // expects a "surveys" table in Supabase with
+      // feeling (text), speed (text), comment (text), created_at (timestamp)
       const payload = {
         feeling: feeling || null,
         speed: speed || null,
@@ -36,17 +33,21 @@ const Survey = () => {
       const { error } = await supabase.from("surveys").insert([payload]);
 
       if (error) {
-        console.error("Supabase survey insert error (non-blocking):", error);
-        // Don’t block the user anymore – just go home
-        finishAndGoHome();
+        console.error("Supabase survey insert error:", error);
+        alert(
+          `Feedback save failed. ${
+            error.message || "You can still continue to the home screen."
+          }`
+        );
+        setIsSubmitting(false);
         return;
       }
 
-      // Success
-      finishAndGoHome();
+      navigate("/", { state: { feedbackComplete: true } });
     } catch (err) {
-      console.error("Unexpected survey submit error (non-blocking):", err);
-      finishAndGoHome();
+      console.error("Unexpected survey submit error:", err);
+      alert("Something went wrong saving your feedback, but you can still continue.");
+      setIsSubmitting(false);
     }
   };
 
@@ -58,7 +59,7 @@ const Survey = () => {
           <p className="text-xs uppercase tracking-[0.25em] text-orange-400">
             HaRC Healthy Coolers
           </p>
-        <h1 className="text-xl font-semibold mt-1">Quick feedback</h1>
+          <h1 className="text-xl font-semibold mt-1">Quick feedback</h1>
           <p className="text-[11px] text-slate-400 mt-1">
             30 seconds. Your answers help Authority Health improve this cooler.
           </p>
