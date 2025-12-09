@@ -1,5 +1,6 @@
 // src/ManagerDashboard.jsx
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 const TABS = ["orders", "help", "restock"];
@@ -18,6 +19,8 @@ const MANAGER_PIN =
     : "1357";
 
 const ManagerDashboard = () => {
+  const navigate = useNavigate();
+
   const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
   const [helpRequests, setHelpRequests] = useState([]);
@@ -613,16 +616,25 @@ const ManagerDashboard = () => {
   // Main dashboard
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 text-slate-900 flex flex-col">
-      {/* Header */}
-      <header className="px-4 pt-6 pb-4 border-b border-orange-200/60">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-orange-500">
-          HARC HEALTHY COOLERS
-        </p>
-        <h1 className="mt-1 text-xl font-semibold">Manager dashboard</h1>
-        <p className="mt-1 text-xs text-slate-600">
-          View recent orders, coverage / help requests, and restock guidance for
-          this cooler network.
-        </p>
+      {/* Header with Back to staff tools */}
+      <header className="px-4 pt-6 pb-4 border-b border-orange-200/60 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-orange-500">
+            HARC HEALTHY COOLERS
+          </p>
+          <h1 className="mt-1 text-xl font-semibold">Manager dashboard</h1>
+          <p className="mt-1 text-xs text-slate-600 max-w-xs">
+            View recent orders, coverage / help requests, and restock guidance
+            for this cooler network.
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigate("/staff")}
+          className="mt-1 text-[11px] border border-slate-300 rounded-full px-3 py-1 bg-white/80 text-slate-800 font-medium"
+        >
+          Back to staff tools
+        </button>
       </header>
 
       {/* Summary cards */}
