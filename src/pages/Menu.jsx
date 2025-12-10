@@ -1,9 +1,15 @@
+// src/pages/Menu.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { MENU } from "../data"; // <-- IMPORTANT: go up one level
 
 const Menu = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // If a cooler was chosen earlier, we can carry it forward
+  const coolerId = location.state?.coolerId || location.state?.cooler_id || null;
+
   const [cart, setCart] = useState([]);
 
   // Add item or increase qty
@@ -55,6 +61,7 @@ const Menu = () => {
         cart,
         subtotal,
         totalItems,
+        coolerId, // <-- carry forward cooler
       },
     });
   };
@@ -70,6 +77,11 @@ const Menu = () => {
           <h1 className="text-xl font-semibold mt-1">
             Pick your healthy snacks
           </h1>
+          {coolerId && (
+            <p className="text-[11px] text-slate-400 mt-1">
+              Cooler: <span className="font-semibold">{String(coolerId)}</span>
+            </p>
+          )}
         </div>
         <button
           onClick={() => navigate(-1)}
@@ -90,11 +102,18 @@ const Menu = () => {
                 : item.price || 0;
 
             return (
-              <button
+              <div
                 key={item.id ?? item.name}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => handleAddToCart(item)}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col items-start text-left"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleAddToCart(item);
+                  }
+                }}
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-col items-start text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500/70"
               >
                 <div className="w-full h-20 bg-slate-800 rounded-xl mb-3 flex items-center justify-center text-[10px] uppercase tracking-wide">
                   {item.category || "Healthy Option"}
@@ -142,7 +161,7 @@ const Menu = () => {
                     </span>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

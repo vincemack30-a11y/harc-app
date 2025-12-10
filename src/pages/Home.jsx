@@ -1,80 +1,60 @@
+// src/pages/Home.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { COOLERS } from "../data"; // list of cooler locations
 
-const SURVEY_URL =
-  "https://survey.mphi.org/surveys/?s=HD7C7FPHNCEWFXR3";
-
-const Home = () => {
+export default function Home() {
   const navigate = useNavigate();
 
-  const handleStartOrder = () => {
-    navigate("/coolers");
-  };
-
-  const handleGoToHelp = () => {
-    navigate("/help");
-  };
-
-  const handleGoToSurvey = () => {
-    window.open(SURVEY_URL, "_blank", "noopener,noreferrer");
+  const handleCoolerClick = (cooler) => {
+    navigate("/menu", {
+      state: {
+        coolerId: cooler.id,
+        coolerName: cooler.name,
+      },
+    });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 flex flex-col">
-      {/* Header */}
-      <header className="px-4 pt-10 pb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+    <div className="pt-8 pb-10">
+      {/* Page header */}
+      <header className="mb-6">
+        <p className="text-xs uppercase tracking-[0.25em] text-orange-500">
+          HaRC Healthy Coolers
+        </p>
+        <h1 className="text-3xl font-extrabold text-slate-900 mt-2">
           Welcome to HaRC Healthy Coolers
         </h1>
-        <p className="mt-2 text-sm text-slate-700 max-w-xl">
-          Find healthy grab-and-go meals, snacks, and drinks in Byte coolers
-          across Detroit, and connect to Medicaid/Medicare help and community
-          resources.
+        <p className="text-sm text-slate-700 mt-2">
+          Pick a cooler location to begin your order.
         </p>
       </header>
 
-      {/* Main actions */}
-      <main className="flex-1 px-4 space-y-4">
-        <button
-          onClick={handleStartOrder}
-          className="w-full max-w-sm rounded-full bg-orange-500 text-black font-semibold text-sm py-3 px-4 shadow-sm"
-        >
-          Start an order
-        </button>
-
-        <div className="max-w-sm space-y-2 text-sm text-slate-700">
-          <p>
-            Use the button above to pick your cooler, choose items from the
-            menu, and review your cart before checkout.
-          </p>
-        </div>
-
-        <div className="max-w-sm mt-6 space-y-2">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-            Need support?
-          </p>
+      {/* Cooler list */}
+      <div className="space-y-3 text-sm">
+        {COOLERS.map((cooler) => (
           <button
-            onClick={handleGoToHelp}
-            className="w-full rounded-full border border-slate-300 bg-white/70 text-slate-900 text-sm font-medium py-3 px-4"
+            key={cooler.id}
+            type="button"
+            onClick={() => handleCoolerClick(cooler)}
+            className="w-full text-left border border-slate-300 rounded-xl px-4 py-3 bg-white hover:bg-orange-50"
           >
-            Request coverage or ask for help
+            <p className="font-semibold text-slate-900">
+              {cooler.name}
+            </p>
+            {cooler.subtitle && (
+              <p className="text-xs text-slate-600 mt-1">
+                {cooler.subtitle}
+              </p>
+            )}
           </button>
+        ))}
+      </div>
 
-          <button
-            onClick={handleGoToSurvey}
-            className="w-full rounded-full border border-slate-300 bg-white/40 text-slate-800 text-xs py-2 px-4"
-          >
-            Leave quick feedback about the cooler
-          </button>
-        </div>
-      </main>
-
-      {/* Footer hint */}
-      <footer className="px-4 pb-6 text-[11px] text-slate-500">
-        Powered by Authority Health’s HaRC Initiative &amp; Byte Technology.
-      </footer>
+      <p className="text-[11px] text-slate-500 mt-6">
+        HaRC • Authority Health • Detroit Wayne County. Powered by Byte +
+        community partners.
+      </p>
     </div>
   );
-};
-
-export default Home;
+}

@@ -1,64 +1,49 @@
-// src/pages/Staff.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
 const Staff = () => {
   const navigate = useNavigate();
 
-  const goManager = () => {
-    navigate("/manager");
-  };
-
-  const goAssist = () => {
-    navigate("/assist");
-  };
-
-  const goHome = () => {
-    navigate("/");
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 flex flex-col">
-      <header className="px-4 pt-6 pb-4 border-b border-orange-200/60">
+    <div className="min-h-screen bg-gradient-to-b from-orange-100 via-amber-50 to-emerald-50 text-slate-900 flex flex-col">
+      {/* Header */}
+      <header className="px-5 py-6 border-b border-orange-200/60 bg-white/60 backdrop-blur-md">
         <p className="text-[10px] uppercase tracking-[0.25em] text-orange-500">
-          HARC HEALTHY COOLERS
+          HaRC Healthy Coolers
         </p>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">
-          Staff tools
-        </h1>
-        <p className="mt-1 text-xs text-slate-600 max-w-xl">
-          Shortcuts for Authority Health and partner staff working with this
-          cooler location.
+        <h1 className="text-xl font-bold mt-1">Staff Tools</h1>
+        <p className="text-xs text-slate-600 mt-1">
+          Quick links for Authority Health CHWs & managers.
         </p>
       </header>
 
-      <main className="flex-1 px-4 py-4 space-y-4 max-w-md">
+      {/* Main Actions */}
+      <main className="px-5 pt-6 space-y-4 max-w-md mx-auto w-full flex-1">
         <button
-          onClick={goManager}
-          className="w-full rounded-full bg-orange-500 text-black text-sm font-semibold py-2 border border-orange-600"
+          onClick={() => navigate("/manager")}
+          className="w-full py-4 rounded-2xl bg-orange-500 text-black font-semibold text-sm shadow-md shadow-orange-200"
         >
-          Open manager dashboard
+          Manager Tools (PIN required)
         </button>
 
         <button
-          onClick={goAssist}
-          className="w-full rounded-full border border-slate-900 text-sm font-semibold py-2 bg-white/80"
+          onClick={() => navigate("/assist")}
+          className="w-full py-4 rounded-2xl bg-white/80 border border-slate-300 text-slate-800 text-sm shadow-sm"
         >
-          Open coverage / navigation tools
+          Coverage / Help Requests
         </button>
 
         <button
-          onClick={goHome}
-          className="w-full rounded-full border border-slate-700 text-sm font-semibold py-2 bg-transparent"
+          onClick={() => navigate("/")}
+          className="w-full py-4 rounded-2xl bg-white/60 border border-slate-200 text-slate-700 text-sm"
         >
-          Back to customer home screen
+          Back to Home
         </button>
-
-        <p className="mt-4 text-[11px] text-slate-500">
-          Tip: Bookmark this page on staff tablets or phones to quickly access
-          dashboard tools while working in the field.
-        </p>
       </main>
+
+      <footer className="px-4 py-6 text-center text-[11px] text-slate-500">
+        Tip: Bookmark this page on staff tablets for quick access.
+      </footer>
     </div>
   );
 };
