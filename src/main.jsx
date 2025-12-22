@@ -1,17 +1,13 @@
-// src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-
-import App from "./App";
+import { BrowserRouter } from "react-router-dom";
+import App from "./App.jsx";
 import "./index.css";
-
-// Wrap the app in our global context provider
-import { AppContextProvider } from "./context/AppContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <AppContextProvider>
+    <BrowserRouter>
       <App />
-    </AppContextProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );

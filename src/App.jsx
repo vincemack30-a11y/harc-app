@@ -12,11 +12,10 @@ import {
   Calendar,
   Download,
   RefreshCcw,
-  Trophy,
 } from "lucide-react";
 
 import { COOLERS, MENU } from "./data.js";
-import { supabase, SUPABASE_CONFIG_OK } from "./supabaseClient";
+import { supabase } from "./supabaseClient";
 import { applyTheme } from "./theme.js";
 
 const SURVEY_URL = "https://survey.mphi.org/surveys/?s=HD7C7FPHNCEWFXR3";
@@ -47,75 +46,6 @@ function addDaysISO(baseISO, days) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
-}
-
-function monthStartISO(iso) {
-  const d = new Date(`${iso}T00:00:00`);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${yyyy}-${mm}-01`;
-}
-
-function monthEndISO(iso) {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setMonth(d.getMonth() + 1);
-  d.setDate(0);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function prevMonthStartISO(iso) {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${yyyy}-${mm}-01`;
-}
-
-function prevMonthEndISO(iso) {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(1);
-  d.setDate(0);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isoDateFromCreatedAt(created_at) {
-  if (!created_at) return null;
-  const d = new Date(created_at);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-// Week starts on Monday
-function startOfWeekISO(isoDate) {
-  const d = new Date(`${isoDate}T00:00:00`);
-  const day = d.getDay(); // 0 Sun .. 6 Sat
-  const diff = (day === 0 ? -6 : 1) - day; // move to Monday
-  d.setDate(d.getDate() + diff);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-// Exclude-zero helper
-function bestByMetric(rows, metricKey) {
-  const eligible = (rows || []).filter((r) => Number(r?.[metricKey] || 0) > 0);
-  if (!eligible.length) return null;
-
-  let best = eligible[0];
-  for (const r of eligible) {
-    if (Number(r[metricKey] || 0) > Number(best[metricKey] || 0)) best = r;
-  }
-  return best;
 }
 
 const Shell = ({ children }) => {
@@ -163,9 +93,7 @@ const Shell = ({ children }) => {
             </div>
             <div style={{ lineHeight: 1.1 }}>
               <div style={{ fontWeight: 900, fontSize: 16 }}>HaRC Healthy Coolers</div>
-              <div style={{ fontSize: 12, color: "var(--harc-muted)" }}>
-                Find • Order • Survey • Get Help
-              </div>
+              <div style={{ fontSize: 12, color: "var(--harc-muted)" }}>Find • Order • Survey • Get Help</div>
             </div>
           </div>
 
@@ -185,12 +113,7 @@ const Shell = ({ children }) => {
         </div>
       </header>
 
-      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "18px 16px 36px" }}>
-        {!SUPABASE_CONFIG_OK ? (
-          <ConfigErrorCard />
-        ) : null}
-        {children}
-      </main>
+      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "18px 16px 36px" }}>{children}</main>
 
       <footer style={{ borderTop: "1px solid var(--harc-border)", padding: "16px" }}>
         <div
@@ -272,48 +195,12 @@ const Button = ({ children, onClick, type = "button", variant = "primary", disab
         color: fg,
         fontWeight: 900,
         fontSize: 14,
-        whiteSpace: "nowrap",
       }}
     >
       {children}
     </button>
   );
 };
-
-const Pill = ({ active, label, onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        cursor: "pointer",
-        padding: "8px 10px",
-        borderRadius: 999,
-        border: `1px solid ${active ? "var(--harc-green)" : "var(--harc-border)"}`,
-        background: active ? "var(--harc-soft-green-bg)" : "white",
-        color: "var(--harc-text)",
-        fontWeight: 900,
-        fontSize: 12,
-      }}
-    >
-      {label}
-    </button>
-  );
-};
-
-function ConfigErrorCard() {
-  return (
-    <Card style={{ marginBottom: 14, borderColor: "var(--harc-danger-border)", background: "var(--harc-danger-bg)" }}>
-      <div style={{ fontWeight: 900, fontSize: 16 }}>Production Config Required</div>
-      <div style={{ marginTop: 8, color: "var(--harc-danger-text)", whiteSpace: "pre-wrap" }}>
-        Supabase environment variables are missing.
-        {"\n\n"}Fix in Vercel → Project Settings → Environment Variables (Production):
-        {"\n"}- VITE_SUPABASE_URL
-        {"\n"}- VITE_SUPABASE_ANON_KEY
-        {"\n\n"}Then redeploy.
-      </div>
-    </Card>
-  );
-}
 
 export default function App() {
   useEffect(() => {
@@ -369,11 +256,6 @@ export default function App() {
   const clearCart = () => setCart([]);
 
   const checkout = async () => {
-    if (!SUPABASE_CONFIG_OK || !supabase) {
-      alert("Supabase is not configured. Set Vercel env vars (Production) and redeploy.");
-      return;
-    }
-
     if (!selectedCoolerId) {
       alert("Select a cooler first.");
       navigate("/");
@@ -517,9 +399,7 @@ export default function App() {
             <motion.div {...pageAnim}>
               <Card>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>Page not found</div>
-                <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-                  Use the navigation above to continue.
-                </div>
+                <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>Use the navigation above to continue.</div>
                 <div style={{ marginTop: 12 }}>
                   <Button onClick={() => navigate("/")}>Go to Coolers</Button>
                 </div>
@@ -541,9 +421,7 @@ function CoolersPage({ selectedCoolerId, setSelectedCoolerId, selectedCooler, ca
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 18 }}>Select a Cooler</div>
-            <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-              Choose the location you’re shopping from.
-            </div>
+            <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>Choose the location you’re shopping from.</div>
           </div>
           <div
             style={{
@@ -580,9 +458,7 @@ function CoolersPage({ selectedCoolerId, setSelectedCoolerId, selectedCooler, ca
                 </div>
                 <div style={{ color: "var(--harc-muted)", marginTop: 4 }}>{c.address}</div>
                 {c.notes ? (
-                  <div style={{ color: "var(--harc-muted)", marginTop: 4, fontSize: 12 }}>
-                    Notes: {c.notes}
-                  </div>
+                  <div style={{ color: "var(--harc-muted)", marginTop: 4, fontSize: 12 }}>Notes: {c.notes}</div>
                 ) : null}
                 <div style={{ marginTop: 8, fontSize: 12, color: "var(--harc-muted)" }}>
                   ID: <span style={{ fontWeight: 900 }}>{c.cooler_id}</span>
@@ -637,18 +513,9 @@ function MenuPage({ selectedCooler, menuItems, onAdd, onGoCart, cartCount }) {
               <Card key={item.id} style={{ padding: 14 }}>
                 <div style={{ fontWeight: 900, fontSize: 16 }}>{item.name}</div>
                 {item.desc ? (
-                  <div style={{ color: "var(--harc-muted)", marginTop: 6, fontSize: 13 }}>
-                    {item.desc}
-                  </div>
+                  <div style={{ color: "var(--harc-muted)", marginTop: 6, fontSize: 13 }}>{item.desc}</div>
                 ) : null}
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
+                <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontWeight: 900 }}>{money(item.price)}</div>
                   <Button onClick={() => onAdd(item)}>Add</Button>
                 </div>
@@ -736,9 +603,7 @@ function ConfirmPage({ orderId, total, cooler, onGoSurvey, onGoCoolers }) {
     <div style={{ display: "grid", gap: 14 }}>
       <Card>
         <div style={{ fontWeight: 900, fontSize: 18 }}>Order Confirmed</div>
-        <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-          Thank you. Your order has been recorded.
-        </div>
+        <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>Thank you. Your order has been recorded.</div>
 
         <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
           <div>
@@ -777,8 +642,7 @@ function SurveyPage({ onOpenSurvey }) {
 
         <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Button onClick={onOpenSurvey}>
-            Open Official Survey{" "}
-            <ExternalLink size={16} style={{ marginLeft: 8, verticalAlign: "middle" }} />
+            Open Official Survey <ExternalLink size={16} style={{ marginLeft: 8, verticalAlign: "middle" }} />
           </Button>
           <a href={SURVEY_URL} target="_blank" rel="noreferrer" style={{ fontWeight: 900, textDecoration: "none" }}>
             Or copy link
@@ -798,11 +662,6 @@ function HelpPage({ selectedCoolerId }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!SUPABASE_CONFIG_OK || !supabase) {
-      alert("Supabase is not configured. Set Vercel env vars (Production) and redeploy.");
-      return;
-    }
-
     setSaving(true);
     try {
       const payload = { name, phone, topic, notes, cooler_id: selectedCoolerId || null };
@@ -859,27 +718,41 @@ function HelpPage({ selectedCoolerId }) {
   );
 }
 
+function Field({ label, children }) {
+  return (
+    <label style={{ display: "grid", gap: 6 }}>
+      <div style={{ fontWeight: 900, fontSize: 13 }}>{label}</div>
+      {children}
+    </label>
+  );
+}
+
+function inputStyle() {
+  return {
+    width: "100%",
+    padding: "12px 12px",
+    borderRadius: 14,
+    border: "1px solid var(--harc-border)",
+    outline: "none",
+    fontSize: 14,
+    background: "white",
+  };
+}
+
+/* ------------------------- Manager Pages ------------------------- */
+
 function ManagerHome({ unlocked, setUnlocked, onGoAnalytics }) {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
 
   const unlock = async (e) => {
     e.preventDefault();
-    if (!SUPABASE_CONFIG_OK || !supabase) {
-      alert("Supabase is not configured. Set Vercel env vars (Production) and redeploy.");
-      return;
-    }
-
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("manager_unlock", { pin });
       if (error) throw error;
 
-      const ok =
-        data === true ||
-        data === 1 ||
-        (typeof data === "object" && data !== null) ||
-        Array.isArray(data);
+      const ok = data === true || data === 1 || (typeof data === "object" && data !== null) || Array.isArray(data);
 
       if (!ok) {
         alert("Invalid PIN.");
@@ -911,9 +784,7 @@ function ManagerHome({ unlocked, setUnlocked, onGoAnalytics }) {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 18 }}>Manager</div>
-            <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-              PIN-gated analytics for cooler performance.
-            </div>
+            <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>PIN-gated analytics for cooler performance.</div>
           </div>
 
           {unlocked ? (
@@ -945,16 +816,11 @@ function ManagerHome({ unlocked, setUnlocked, onGoAnalytics }) {
 }
 
 function ManagerAnalytics({ unlocked }) {
-  const ISO_TODAY = todayISO();
-
-  const [dateFrom, setDateFrom] = useState(addDaysISO(ISO_TODAY, -30));
-  const [dateTo, setDateTo] = useState(ISO_TODAY);
-
+  const [dateFrom, setDateFrom] = useState(addDaysISO(todayISO(), -30));
+  const [dateTo, setDateTo] = useState(todayISO());
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [rows, setRows] = useState([]);
-  const [ordersRaw, setOrdersRaw] = useState([]);
-  const [tab, setTab] = useState("coolers");
 
   const normalized = useMemo(() => {
     const byId = new Map();
@@ -972,8 +838,15 @@ function ManagerAnalytics({ unlocked }) {
     });
   }, [rows]);
 
+  // EXCLUDE ZERO-ACTIVITY COOLERS (your request)
+  const active = useMemo(() => {
+    return normalized.filter(
+      (r) => Number(r.orders_count || 0) > 0 || Number(r.items_count || 0) > 0 || Number(r.revenue_total || 0) > 0
+    );
+  }, [normalized]);
+
   const totals = useMemo(() => {
-    return normalized.reduce(
+    return active.reduce(
       (acc, r) => {
         acc.orders += r.orders_count;
         acc.items += r.items_count;
@@ -982,78 +855,25 @@ function ManagerAnalytics({ unlocked }) {
       },
       { orders: 0, items: 0, revenue: 0 }
     );
-  }, [normalized]);
+  }, [active]);
 
-  const topRevenue = useMemo(() => bestByMetric(normalized, "revenue_total"), [normalized]);
-  const topOrders = useMemo(() => bestByMetric(normalized, "orders_count"), [normalized]);
-  const topItems = useMemo(() => bestByMetric(normalized, "items_count"), [normalized]);
+  const topRevenue = useMemo(() => {
+    if (!active.length) return null;
+    return [...active].sort((a, b) => b.revenue_total - a.revenue_total)[0];
+  }, [active]);
 
-  const dailyRollups = useMemo(() => {
-    const byDay = new Map();
+  const topOrders = useMemo(() => {
+    if (!active.length) return null;
+    return [...active].sort((a, b) => b.orders_count - a.orders_count)[0];
+  }, [active]);
 
-    for (const o of ordersRaw || []) {
-      const dayISO = isoDateFromCreatedAt(o.created_at);
-      if (!dayISO) continue;
-
-      const cur = byDay.get(dayISO) || { day: dayISO, orders: 0, items: 0, revenue: 0 };
-      cur.orders += 1;
-      cur.revenue += Number(o.total || 0);
-
-      const items = Array.isArray(o.items) ? o.items : [];
-      cur.items += items.reduce((s, x) => s + Number(x.qty || 0), 0);
-
-      byDay.set(dayISO, cur);
-    }
-
-    return Array.from(byDay.values()).sort((a, b) => (a.day > b.day ? -1 : 1));
-  }, [ordersRaw]);
-
-  const weeklyRollups = useMemo(() => {
-    const byWeek = new Map();
-
-    for (const o of ordersRaw || []) {
-      const dayISO = isoDateFromCreatedAt(o.created_at);
-      if (!dayISO) continue;
-
-      const weekStart = startOfWeekISO(dayISO);
-      const weekEnd = addDaysISO(weekStart, 6);
-
-      const key = weekStart;
-      const cur = byWeek.get(key) || {
-        week_start: weekStart,
-        week_end: weekEnd,
-        orders: 0,
-        items: 0,
-        revenue: 0,
-      };
-
-      cur.orders += 1;
-      cur.revenue += Number(o.total || 0);
-
-      const items = Array.isArray(o.items) ? o.items : [];
-      cur.items += items.reduce((s, x) => s + Number(x.qty || 0), 0);
-
-      byWeek.set(key, cur);
-    }
-
-    return Array.from(byWeek.values()).sort((a, b) => (a.week_start > b.week_start ? -1 : 1));
-  }, [ordersRaw]);
-
-  const fetchOrdersForRollups = async () => {
-    const { data: orders, error: qerr } = await supabase
-      .from("orders")
-      .select("cooler_id,total,items,created_at")
-      .gte("created_at", `${dateFrom}T00:00:00`)
-      .lte("created_at", `${dateTo}T23:59:59`);
-
-    if (qerr) throw qerr;
-    setOrdersRaw(Array.isArray(orders) ? orders : []);
-  };
+  const topItems = useMemo(() => {
+    if (!active.length) return null;
+    return [...active].sort((a, b) => b.items_count - a.items_count)[0];
+  }, [active]);
 
   const fetchAnalytics = async () => {
     if (!unlocked) return;
-    if (!SUPABASE_CONFIG_OK || !supabase) return;
-
     setLoading(true);
     setErrorMsg("");
 
@@ -1064,35 +884,51 @@ function ManagerAnalytics({ unlocked }) {
       });
       if (error) throw error;
       setRows(Array.isArray(data) ? data : []);
-      await fetchOrdersForRollups();
     } catch (err) {
       console.error(err);
-      setErrorMsg(err?.message || "Analytics failed.");
+
+      // Fallback query from orders table
+      try {
+        const { data: orders, error: qerr } = await supabase
+          .from("orders")
+          .select("cooler_id,total,items,created_at")
+          .gte("created_at", `${dateFrom}T00:00:00`)
+          .lte("created_at", `${dateTo}T23:59:59`);
+        if (qerr) throw qerr;
+
+        const roll = new Map();
+        for (const o of orders || []) {
+          const id = o.cooler_id;
+          const cur = roll.get(id) || { cooler_id: id, orders_count: 0, items_count: 0, revenue_total: 0 };
+          cur.orders_count += 1;
+          cur.revenue_total += Number(o.total || 0);
+
+          const items = Array.isArray(o.items) ? o.items : [];
+          cur.items_count += items.reduce((s, x) => s + Number(x.qty || 0), 0);
+
+          roll.set(id, cur);
+        }
+
+        setRows(Array.from(roll.values()));
+        setErrorMsg(`RPC not available. Using fallback query from orders table.\n(${err?.message || "RPC error"})`);
+      } catch (fallbackErr) {
+        console.error(fallbackErr);
+        setErrorMsg(fallbackErr?.message || "Analytics failed.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (unlocked && SUPABASE_CONFIG_OK && supabase) fetchAnalytics();
+    if (unlocked) fetchAnalytics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlocked]);
-
-  if (!SUPABASE_CONFIG_OK || !supabase) {
-    return (
-      <Card>
-        <div style={{ fontWeight: 900, fontSize: 18 }}>Analytics unavailable</div>
-        <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-          Supabase is not configured for this environment. Set Vercel env vars (Production) and redeploy.
-        </div>
-      </Card>
-    );
-  }
 
   const downloadCSV = () => {
     const header = ["cooler_id", "cooler_name", "orders_count", "items_count", "revenue_total"];
     const lines = [header.join(",")].concat(
-      normalized.map((r) =>
+      active.map((r) =>
         [
           r.cooler_id,
           `"${(r.cooler_name || "").replaceAll('"', '""')}"`,
@@ -1112,47 +948,19 @@ function ManagerAnalytics({ unlocked }) {
     URL.revokeObjectURL(url);
   };
 
-  const downloadWeeklyCSV = () => {
-    const header = ["week_start", "week_end", "orders", "items", "revenue"];
-    const lines = [header.join(",")].concat(
-      weeklyRollups.map((w) =>
-        [w.week_start, w.week_end, w.orders, w.items, Number(w.revenue || 0).toFixed(2)].join(",")
-      )
+  if (!unlocked) {
+    return (
+      <Card>
+        <div style={{ fontWeight: 900, fontSize: 18 }}>Locked</div>
+        <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>Go to Manager and unlock with PIN to view analytics.</div>
+        <div style={{ marginTop: 12 }}>
+          <Link to="/manager" style={{ fontWeight: 900, textDecoration: "none" }}>
+            Go to Manager
+          </Link>
+        </div>
+      </Card>
     );
-
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `harc_weekly_rollups_${dateFrom}_to_${dateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadDailyCSV = () => {
-    const header = ["day", "orders", "items", "revenue"];
-    const lines = [header.join(",")].concat(
-      dailyRollups.map((d) => [d.day, d.orders, d.items, Number(d.revenue || 0).toFixed(2)].join(","))
-    );
-
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `harc_daily_rollups_${dateFrom}_to_${dateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const setRange = (rangeId) => {
-    const t = todayISO();
-    if (rangeId === "7") return (setDateFrom(addDaysISO(t, -7)), setDateTo(t));
-    if (rangeId === "30") return (setDateFrom(addDaysISO(t, -30)), setDateTo(t));
-    if (rangeId === "mtd") return (setDateFrom(monthStartISO(t)), setDateTo(t));
-    if (rangeId === "this_month") return (setDateFrom(monthStartISO(t)), setDateTo(monthEndISO(t)));
-    if (rangeId === "last_month") return (setDateFrom(prevMonthStartISO(t)), setDateTo(prevMonthEndISO(t)));
-    if (rangeId === "all") return (setDateFrom("2000-01-01"), setDateTo(t));
-  };
+  }
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -1161,7 +969,7 @@ function ManagerAnalytics({ unlocked }) {
           <div>
             <div style={{ fontWeight: 900, fontSize: 18 }}>Manager Analytics</div>
             <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-              Rollups by cooler + weekly/daily summaries.
+              Rollups by cooler (zero-activity coolers excluded).
             </div>
           </div>
 
@@ -1170,31 +978,11 @@ function ManagerAnalytics({ unlocked }) {
               <RefreshCcw size={16} style={{ marginRight: 8, verticalAlign: "middle" }} />
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
-
             <Button variant="secondary" onClick={downloadCSV}>
               <Download size={16} style={{ marginRight: 8, verticalAlign: "middle" }} />
-              Export Cooler CSV
-            </Button>
-
-            <Button variant="secondary" onClick={downloadWeeklyCSV} disabled={!weeklyRollups.length}>
-              <Download size={16} style={{ marginRight: 8, verticalAlign: "middle" }} />
-              Export Weekly CSV
-            </Button>
-
-            <Button variant="secondary" onClick={downloadDailyCSV} disabled={!dailyRollups.length}>
-              <Download size={16} style={{ marginRight: 8, verticalAlign: "middle" }} />
-              Export Daily CSV
+              Export CSV
             </Button>
           </div>
-        </div>
-
-        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Pill label="Last 7" onClick={() => setRange("7")} />
-          <Pill label="Last 30" onClick={() => setRange("30")} />
-          <Pill label="MTD" onClick={() => setRange("mtd")} />
-          <Pill label="This Month" onClick={() => setRange("this_month")} />
-          <Pill label="Last Month" onClick={() => setRange("last_month")} />
-          <Pill label="All Time" onClick={() => setRange("all")} />
         </div>
 
         <div
@@ -1229,13 +1017,12 @@ function ManagerAnalytics({ unlocked }) {
               background: "var(--harc-danger-bg)",
             }}
           >
-            <div style={{ fontWeight: 900 }}>Error</div>
-            <div style={{ color: "var(--harc-danger-text)", marginTop: 6, whiteSpace: "pre-wrap" }}>
-              {errorMsg}
-            </div>
+            <div style={{ fontWeight: 900 }}>Note</div>
+            <div style={{ color: "var(--harc-danger-text)", marginTop: 6, whiteSpace: "pre-wrap" }}>{errorMsg}</div>
           </div>
         ) : null}
 
+        {/* Totals + Top Performers */}
         <div
           style={{
             marginTop: 14,
@@ -1248,106 +1035,85 @@ function ManagerAnalytics({ unlocked }) {
             <div style={{ color: "var(--harc-muted)", fontWeight: 900 }}>Total Orders</div>
             <div style={{ fontWeight: 900, fontSize: 22, marginTop: 6 }}>{totals.orders}</div>
           </Card>
+
           <Card style={{ padding: 14, borderColor: "var(--harc-soft-green-border)" }}>
             <div style={{ color: "var(--harc-muted)", fontWeight: 900 }}>Total Items</div>
             <div style={{ fontWeight: 900, fontSize: 22, marginTop: 6 }}>{totals.items}</div>
           </Card>
+
           <Card style={{ padding: 14, borderColor: "var(--harc-soft-green-border)" }}>
             <div style={{ color: "var(--harc-muted)", fontWeight: 900 }}>Total Revenue</div>
             <div style={{ fontWeight: 900, fontSize: 22, marginTop: 6 }}>{money(totals.revenue)}</div>
           </Card>
-        </div>
 
-        <div
-          style={{
-            marginTop: 10,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 10,
-          }}
-        >
-          <Card style={{ padding: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 900 }}>
-              <Trophy size={16} />
-              Top Revenue Cooler
-            </div>
+          <Card style={{ padding: 14, borderColor: "var(--harc-border)" }}>
+            <div style={{ color: "var(--harc-muted)", fontWeight: 900 }}>Top Revenue Cooler</div>
             {topRevenue ? (
               <>
-                <div style={{ marginTop: 8, fontWeight: 900, fontSize: 18 }}>{topRevenue.cooler_name}</div>
-                <div style={{ color: "var(--harc-muted)", fontSize: 12 }}>ID: {topRevenue.cooler_id}</div>
-                <div style={{ marginTop: 8, fontWeight: 900, fontSize: 20 }}>{money(topRevenue.revenue_total)}</div>
+                <div style={{ fontWeight: 900, marginTop: 6 }}>{topRevenue.cooler_name}</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>{money(topRevenue.revenue_total)}</div>
               </>
             ) : (
-              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No revenue in this date range.</div>
+              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No activity in range</div>
             )}
           </Card>
 
-          <Card style={{ padding: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 900 }}>
-              <Trophy size={16} />
-              Top Orders Cooler
-            </div>
+          <Card style={{ padding: 14, borderColor: "var(--harc-border)" }}>
+            <div style={{ color: "var(--harc-muted)", fontWeight: 900 }}>Top Orders Cooler</div>
             {topOrders ? (
               <>
-                <div style={{ marginTop: 8, fontWeight: 900, fontSize: 18 }}>{topOrders.cooler_name}</div>
-                <div style={{ color: "var(--harc-muted)", fontSize: 12 }}>ID: {topOrders.cooler_id}</div>
-                <div style={{ marginTop: 8, fontWeight: 900, fontSize: 20 }}>{topOrders.orders_count}</div>
+                <div style={{ fontWeight: 900, marginTop: 6 }}>{topOrders.cooler_name}</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>{topOrders.orders_count}</div>
               </>
             ) : (
-              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No orders in this date range.</div>
+              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No activity in range</div>
             )}
           </Card>
 
-          <Card style={{ padding: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 900 }}>
-              <Trophy size={16} />
-              Top Items Cooler
-            </div>
+          <Card style={{ padding: 14, borderColor: "var(--harc-border)" }}>
+            <div style={{ color: "var(--harc-muted)", fontWeight: 900 }}>Top Items Cooler</div>
             {topItems ? (
               <>
-                <div style={{ marginTop: 8, fontWeight: 900, fontSize: 18 }}>{topItems.cooler_name}</div>
-                <div style={{ color: "var(--harc-muted)", fontSize: 12 }}>ID: {topItems.cooler_id}</div>
-                <div style={{ marginTop: 8, fontWeight: 900, fontSize: 20 }}>{topItems.items_count}</div>
+                <div style={{ fontWeight: 900, marginTop: 6 }}>{topItems.cooler_name}</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>{topItems.items_count}</div>
               </>
             ) : (
-              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No items sold in this date range.</div>
+              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No activity in range</div>
             )}
           </Card>
-        </div>
-
-        <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Pill active={tab === "coolers"} label="By Cooler" onClick={() => setTab("coolers")} />
-          <Pill active={tab === "weekly"} label="Weekly Rollups" onClick={() => setTab("weekly")} />
-          <Pill active={tab === "daily"} label="Daily Rollups" onClick={() => setTab("daily")} />
         </div>
       </Card>
 
-      {tab === "coolers" ? (
-        <Card>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>By Cooler</div>
-          <div style={{ overflowX: "auto", marginTop: 10 }}>
-            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-              <thead>
-                <tr>
-                  {["Cooler", "Orders", "Items", "Revenue"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        padding: "10px 10px",
-                        borderBottom: "1px solid var(--harc-border)",
-                        color: "var(--harc-muted)",
-                        fontSize: 12,
-                        fontWeight: 900,
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {normalized.map((r) => (
+      <Card>
+        <div style={{ fontWeight: 900, fontSize: 16 }}>By Cooler</div>
+        <div style={{ color: "var(--harc-muted)", marginTop: 6, fontSize: 13 }}>
+          Showing only coolers with activity in this date range.
+        </div>
+
+        <div style={{ overflowX: "auto", marginTop: 10 }}>
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+            <thead>
+              <tr>
+                {["Cooler", "Orders", "Items", "Revenue"].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 10px",
+                      borderBottom: "1px solid var(--harc-border)",
+                      color: "var(--harc-muted)",
+                      fontSize: 12,
+                      fontWeight: 900,
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {active.length ? (
+                active.map((r) => (
                   <tr key={r.cooler_id}>
                     <td style={tdStyle()}>
                       <div style={{ fontWeight: 900 }}>{r.cooler_name}</div>
@@ -1357,141 +1123,27 @@ function ManagerAnalytics({ unlocked }) {
                     <td style={tdStyle()}>{r.items_count}</td>
                     <td style={tdStyle()}>{money(r.revenue_total)}</td>
                   </tr>
-                ))}
+                ))
+              ) : (
                 <tr>
-                  <td style={{ ...tdStyle(), fontWeight: 900 }}>Totals</td>
-                  <td style={{ ...tdStyle(), fontWeight: 900 }}>{totals.orders}</td>
-                  <td style={{ ...tdStyle(), fontWeight: 900 }}>{totals.items}</td>
-                  <td style={{ ...tdStyle(), fontWeight: 900 }}>{money(totals.revenue)}</td>
+                  <td style={tdStyle()} colSpan={4}>
+                    <span style={{ color: "var(--harc-muted)" }}>No activity found for the selected date range.</span>
+                  </td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : null}
+              )}
 
-      {tab === "weekly" ? (
-        <Card>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Weekly Rollups</div>
-          <div style={{ overflowX: "auto", marginTop: 10 }}>
-            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-              <thead>
-                <tr>
-                  {["Week", "Orders", "Items", "Revenue"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        padding: "10px 10px",
-                        borderBottom: "1px solid var(--harc-border)",
-                        color: "var(--harc-muted)",
-                        fontSize: 12,
-                        fontWeight: 900,
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {weeklyRollups.length ? (
-                  weeklyRollups.map((w) => (
-                    <tr key={w.week_start}>
-                      <td style={tdStyle()}>
-                        <div style={{ fontWeight: 900 }}>
-                          {w.week_start} → {w.week_end}
-                        </div>
-                      </td>
-                      <td style={tdStyle()}>{w.orders}</td>
-                      <td style={tdStyle()}>{w.items}</td>
-                      <td style={tdStyle()}>{money(w.revenue)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td style={tdStyle()} colSpan={4}>
-                      <span style={{ color: "var(--harc-muted)" }}>No orders in this range.</span>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : null}
-
-      {tab === "daily" ? (
-        <Card>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Daily Rollups</div>
-          <div style={{ overflowX: "auto", marginTop: 10 }}>
-            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
-              <thead>
-                <tr>
-                  {["Day", "Orders", "Items", "Revenue"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        padding: "10px 10px",
-                        borderBottom: "1px solid var(--harc-border)",
-                        color: "var(--harc-muted)",
-                        fontSize: 12,
-                        fontWeight: 900,
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {dailyRollups.length ? (
-                  dailyRollups.map((d) => (
-                    <tr key={d.day}>
-                      <td style={tdStyle()}>
-                        <div style={{ fontWeight: 900 }}>{d.day}</div>
-                      </td>
-                      <td style={tdStyle()}>{d.orders}</td>
-                      <td style={tdStyle()}>{d.items}</td>
-                      <td style={tdStyle()}>{money(d.revenue)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td style={tdStyle()} colSpan={4}>
-                      <span style={{ color: "var(--harc-muted)" }}>No orders in this range.</span>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : null}
+              <tr>
+                <td style={{ ...tdStyle(), fontWeight: 900 }}>Totals</td>
+                <td style={{ ...tdStyle(), fontWeight: 900 }}>{totals.orders}</td>
+                <td style={{ ...tdStyle(), fontWeight: 900 }}>{totals.items}</td>
+                <td style={{ ...tdStyle(), fontWeight: 900 }}>{money(totals.revenue)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
-}
-
-function Field({ label, children }) {
-  return (
-    <label style={{ display: "grid", gap: 6 }}>
-      <div style={{ fontWeight: 900, fontSize: 13 }}>{label}</div>
-      {children}
-    </label>
-  );
-}
-
-function inputStyle() {
-  return {
-    width: "100%",
-    padding: "12px 12px",
-    borderRadius: 14,
-    border: "1px solid var(--harc-border)",
-    outline: "none",
-    fontSize: 14,
-    background: "white",
-  };
 }
 
 function tdStyle() {

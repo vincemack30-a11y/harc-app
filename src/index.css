@@ -1,273 +1,38 @@
 /* src/index.css */
 
-/* Tailwind layers (even if we mostly use normal CSS, keep these) */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* ---------- Theme tokens ---------- */
-
-:root {
-  --harc-orange: #f97316;
-  --harc-orange-soft: #fed7aa;
-  --harc-green: #10b981;
-  --harc-green-dark: #047857;
-  --harc-cream: #fdf6ec;
-  --harc-text-main: #111827;
-  --harc-text-muted: #4b5563;
-  --harc-border: #fed7aa;
-  --harc-radius-lg: 16px;
-}
-
-/* ---------- Global resets ---------- */
-
-*,
-*::before,
-*::after {
+/* Base reset */
+* {
   box-sizing: border-box;
 }
 
 html,
-body,
-#root {
+body {
   height: 100%;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  color: var(--harc-text-main);
-  background: radial-gradient(circle at top left,
-      #f97316 0,
-      #fed7aa 30%,
-      #fefce8 60%,
-      #d1fae5 100%);
-  -webkit-font-smoothing: antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--harc-bg);
+  color: var(--harc-text);
 }
 
-/* Simple scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 999px;
+/* Links */
+a {
+  color: inherit;
 }
 
-/* ---------- App shell ---------- */
-
-.app-shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Inputs baseline */
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
-/* Center content and keep margins on desktop */
-.app-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 16px 16px 32px;
-}
-
-/* ---------- Header + nav ---------- */
-
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  background: rgba(255, 255, 255, 0.94);
-  border-radius: 0 0 var(--harc-radius-lg) var(--harc-radius-lg);
-  padding: 16px 20px 10px;
-  border-bottom: 1px solid var(--harc-border);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
-}
-
-.app-title-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.app-title {
-  margin: 0;
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-}
-
-.app-subtitle {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--harc-text-muted);
-}
-
-.app-pilot-tag {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--harc-text-muted);
-}
-
-/* nav */
-
-.app-nav {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.app-nav a {
-  font-size: 0.8rem;
-  padding: 4px 10px;
-  border-radius: 999px;
-  text-decoration: none;
-  color: var(--harc-green-dark);
-  background: transparent;
-  border: 1px solid transparent;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-/* Works whether you use Link or NavLink with "active" class */
-.app-nav a:hover {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.3);
-}
-
-.app-nav a.active {
-  background: var(--harc-green);
-  color: white;
-  border-color: var(--harc-green-dark);
-  box-shadow: 0 6px 14px rgba(16, 185, 129, 0.45);
-}
-
-/* ---------- Main card ---------- */
-
-.app-main {
-  margin-top: 18px;
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: var(--harc-radius-lg);
-  padding: 18px 20px 24px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
-  border: 1px solid rgba(254, 215, 170, 0.8);
-}
-
-/* ---------- Typography helpers ---------- */
-
-.app-main h1,
-.app-main h2,
-.app-main h3 {
-  margin-top: 0;
-}
-
-.app-main h1 {
-  font-size: 1.5rem;
-  margin-bottom: 4px;
-}
-
-.app-main h2 {
-  font-size: 1.15rem;
-  margin-top: 18px;
-  margin-bottom: 6px;
-}
-
-.lead {
-  font-size: 0.95rem;
-  color: var(--harc-text-muted);
-  margin: 0 0 10px;
-}
-
-/* ---------- "Choose a cooler" section ---------- */
-
-.cooler-section {
-  margin-top: 12px;
-}
-
-.cooler-section-label {
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-/* if you're using <select> for coolers */
-.cooler-select {
-  width: 100%;
-  min-height: 110px;
-  border-radius: 10px;
-  padding: 6px 10px;
-  border: 1px solid rgba(148, 163, 184, 0.9);
-  background: #fdfdfb;
-  font-size: 0.86rem;
-}
-
-.cooler-select option {
-  padding: 4px 8px;
-}
-
-/* "Continue to menu" button */
-.primary-btn {
-  margin-top: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #047857, #0ea5e9);
-  color: white;
-  font-size: 0.85rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.35);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
-}
-
-.primary-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.4);
-  opacity: 0.96;
-}
-
-/* ---------- Manager dashboard table tweaks ---------- */
-
-.manager-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
-}
-
-.manager-table th,
-.manager-table td {
-  padding: 6px 8px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-}
-
-.manager-table th {
-  text-align: left;
-  font-weight: 600;
-  background: rgba(249, 250, 251, 0.9);
-}
-
-.manager-table tr:nth-child(even) {
-  background: rgba(249, 250, 251, 0.5);
-}
-
-/* tiny footer under manager dashboard */
-.text-harc-muted {
-  color: var(--harc-text-muted);
-}
-
-/* ---------- Responsive ---------- */
-
-@media (max-width: 768px) {
-  .app-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .app-main {
-    margin-top: 12px;
-    padding: 14px 14px 20px;
-  }
+/* Consistent focus ring */
+:focus-visible {
+  outline: 3px solid rgba(21, 128, 61, 0.25);
+  outline-offset: 2px;
 }

@@ -1,162 +1,285 @@
 // src/pages/Intake.jsx
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppContext } from "../context/AppContext";
-import supabase from "../supabaseClient";
+import { supabase } from "../supabaseClient";
+import { ORANGE } from "../data";
+import { getCanonicalCoolerIdFromSelectedCooler } from "../coolerIdMap";
 
-export default function IntakePage() {
-  const navigate = useNavigate();
-  const { selectedCoolerId, selectedCooler } = useAppContext();
+// If your app uses a shared context for selectedCooler, we try to use it.
+// If your AppContext export name differs, tell me and I’ll align it.
+import { useApp } from "../AppContext";
 
-  const [name, setName] = useState("");
+const TOPICS = [
+  "Medicaid / Medicare help",
+  "Primary care appointment",
+  "Food access / benefits question",
+  "Other",
+];
+
+export default function Intake() {
+  const nav = useNavigate();
+
+  // Expected from your existing app state:
+  // - selectedCooler: the currently-selected cooler object
+  const { selectedCooler } = useApp();
+
+  const canonicalCoolerId = useMemo(() => {
+    return getCanonicalCoolerIdFromSelectedCooler(selectedCooler);
+  }, [selectedCooler]);
+
   const [phone, setPhone] = useState("");
-  const [needsPrimaryCare, setNeedsPrimaryCare] = useState(true);
-  const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState("idle"); // idle | submitting | success | error
+  const [topic, setTopic] = useState(TOPICS[0]);
+  const [details, setDetails] = useState("");
+  const [needsPrimaryCare, setNeedsPrimaryCare] = useState(false);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (status === "submitting") return;
+  const [statusMsg, setStatusMsg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    setStatus("submitting");
+  const canSubmit =
+    !!canonicalCoolerId && !!topic && details.trim().length >= 2 && !isSubmitting;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setStatusMsg("");
+
+    if (!canonicalCoolerId) {
+      setStatusMsg("No cooler selected. Go back and select a cooler first.");
+      return;
+    }
+
+    if (details.trim().length < 2) {
+      setStatusMsg("Please add a short note in Details.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
-      // Build payload for public_intake_requests table
       const payload = {
-        cooler_id: selectedCoolerId || null,
-        phone: phone.trim() || null,
-        needs_primary_care: needsPrimaryCare,
+        phone: phone.trim() ? phone.trim() : null,
+        cooler_id: canonicalCoolerId, // ✅ CANONICAL ALWAYS (popoff/hope/partner_1)
         source: "harc-app",
+        notes: null,
+        needs_primary_care: !!needsPrimaryCare,
+        status: "new",
+        topic,
+        details: details.trim(),
       };
 
-      if (notes.trim()) {
-        payload.notes = notes.trim();
-      }
+      const { error } = await supabase.from("intake_requests").insert([payload]);
+      if (error) throw error;
 
-      // Optional: keep name in notes if you want it but don't have a column
-      if (name.trim() && !notes.trim()) {
-        payload.notes = `Name: ${name.trim()}`;
-      } else if (name.trim() && notes.trim()) {
-        payload.notes = `Name: ${name.trim()} — ${notes.trim()}`;
-      }
-
-      const { error } = await supabase
-        .from("intake_requests")
-        .insert(payload);
-
-      if (error) {
-        console.error("Supabase intake error:", error);
-        throw error;
-      }
-
-      setStatus("success");
-      setName("");
+      setStatusMsg("Submitted. Thank you — a team member will follow up.");
       setPhone("");
-      setNotes("");
+      setTopic(TOPICS[0]);
+      setDetails("");
+      setNeedsPrimaryCare(false);
 
-      // Optional: send them back to Home after a short moment
-      setTimeout(() => {
-        navigate("/");
-      }, 1200);
+      // Optional: route to a confirmation page if you have one
+      // nav("/confirmation");
     } catch (err) {
-      console.error("Intake submit error:", err);
-      setStatus("error");
+      setStatusMsg(err?.message || "Submission failed. Try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-  };
-
-  const isSubmitting = status === "submitting";
+  }
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-      <section className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-harc-soft p-6 space-y-4">
-        <header className="space-y-2">
-          <h2 className="text-xl font-semibold text-harc-dark">
-            Need help with coverage or a doctor?
-          </h2>
-          <p className="text-sm text-harc-muted leading-relaxed">
-            Fill this out if you want a community health worker to reach out
-            about Medicaid/Medicare, food help, or finding a primary care
-            provider.
-          </p>
-
-          <p className="text-xs text-harc-muted">
-            {selectedCooler
-              ? <>This request will be linked to <span className="font-semibold">{selectedCooler.name}</span>.</>
-              : <>No cooler selected yet. That&apos;s okay — staff can still see and follow up.</>}
-          </p>
-        </header>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-harc-dark">Name (optional)</span>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-harc-soft px-3 py-2 text-sm text-harc-dark focus:outline-none focus:ring-2 focus:ring-harc-accent focus:border-harc-accent bg-white"
-                placeholder="First and last name"
-              />
-            </label>
-
-            <label className="block text-sm">
-              <span className="text-harc-dark">Phone (optional)</span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-harc-soft px-3 py-2 text-sm text-harc-dark focus:outline-none focus:ring-2 focus:ring-harc-accent focus:border-harc-accent bg-white"
-                placeholder="Best number to reach you"
-              />
-            </label>
+    <div style={{ minHeight: "100vh", background: ORANGE.bg, padding: 16 }}>
+      <div style={{ maxWidth: 820, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: ORANGE.text }}>
+              Request Help
+            </div>
+            <div style={{ fontSize: 13, opacity: 0.8, color: ORANGE.text }}>
+              Submit an intake request. This writes to <code>intake_requests</code>.
+            </div>
           </div>
 
-          <label className="block text-sm">
-            <span className="text-harc-dark">
-              What do you need help with? (optional)
-            </span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="mt-1 w-full rounded-lg border border-harc-soft px-3 py-2 text-sm text-harc-dark focus:outline-none focus:ring-2 focus:ring-harc-accent focus:border-harc-accent bg-white"
-              placeholder="Example: Help with Medicaid, finding a doctor, food, or other support."
-            />
-          </label>
-
-          <label className="inline-flex items-center gap-2 text-sm text-harc-dark">
-            <input
-              type="checkbox"
-              checked={needsPrimaryCare}
-              onChange={(e) => setNeedsPrimaryCare(e.target.checked)}
-              className="h-4 w-4 rounded border-harc-soft text-harc-accent focus:ring-harc-accent"
-            />
-            <span>I want help with Medicaid/Medicare or a primary care provider.</span>
-          </label>
-
-          <div className="flex items-center gap-4 pt-2">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 rounded-full bg-harc-accent text-white text-sm font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "Submitting..." : "Submit request"}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => nav(-1)} style={btnGhost}>
+              Back
             </button>
+            <button onClick={() => nav("/")} style={btnGhost}>
+              Home
+            </button>
+          </div>
+        </div>
 
-            {status === "success" && (
-              <p className="text-xs text-emerald-700">
-                Thanks! A HaRC team member will follow up soon.
-              </p>
-            )}
+        <div style={card}>
+          <div style={{ fontWeight: 900, marginBottom: 6, color: ORANGE.text }}>
+            Selected Cooler
+          </div>
 
-            {status === "error" && (
-              <p className="text-xs text-red-700">
-                Submission failed. Please try again.
-              </p>
+          <div style={{ fontSize: 14, color: ORANGE.text }}>
+            {selectedCooler ? (
+              <>
+                <div style={{ fontWeight: 800 }}>{selectedCooler.name}</div>
+                <div style={{ opacity: 0.85 }}>{selectedCooler.address}</div>
+                <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>
+                  Canonical cooler_id saved to Supabase:{" "}
+                  <code style={code}>{canonicalCoolerId || "MISSING"}</code>
+                </div>
+              </>
+            ) : (
+              <div style={{ color: "#b45309", fontWeight: 800 }}>
+                No cooler selected. Go back and pick a cooler first.
+              </div>
             )}
           </div>
-        </form>
-      </section>
-    </main>
+        </div>
+
+        <div style={card}>
+          <form onSubmit={handleSubmit}>
+            <div style={grid2}>
+              <div>
+                <label style={label}>Phone (optional)</label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(313) 555-1234"
+                  style={input}
+                />
+              </div>
+
+              <div>
+                <label style={label}>Topic</label>
+                <select value={topic} onChange={(e) => setTopic(e.target.value)} style={input}>
+                  {TOPICS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <label style={label}>Details</label>
+              <textarea
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                placeholder="Tell us what you need help with…"
+                style={{ ...input, minHeight: 110, resize: "vertical" }}
+              />
+              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6, color: ORANGE.text }}>
+                Minimum 2 characters. Keep it brief and clear.
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                id="primarycare"
+                type="checkbox"
+                checked={needsPrimaryCare}
+                onChange={(e) => setNeedsPrimaryCare(e.target.checked)}
+              />
+              <label htmlFor="primarycare" style={{ fontSize: 14, color: ORANGE.text }}>
+                I need help connecting to primary care
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+              <button type="submit" style={canSubmit ? btnPrimary : btnDisabled} disabled={!canSubmit}>
+                {isSubmitting ? "Submitting…" : "Submit Request"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusMsg("");
+                  setPhone("");
+                  setTopic(TOPICS[0]);
+                  setDetails("");
+                  setNeedsPrimaryCare(false);
+                }}
+                style={btnGhost}
+                disabled={isSubmitting}
+              >
+                Clear
+              </button>
+            </div>
+
+            {statusMsg ? (
+              <div style={{ marginTop: 12, fontSize: 14, color: ORANGE.text }}>
+                <span style={{ fontWeight: 900 }}>Status:</span>{" "}
+                <span style={{ opacity: 0.9 }}>{statusMsg}</span>
+              </div>
+            ) : null}
+          </form>
+        </div>
+      </div>
+    </div>
   );
 }
+
+const card = {
+  background: ORANGE.card,
+  border: `1px solid ${ORANGE.border}`,
+  borderRadius: 16,
+  padding: 14,
+  marginBottom: 12,
+};
+
+const label = {
+  display: "block",
+  fontSize: 12,
+  fontWeight: 900,
+  marginBottom: 6,
+  color: ORANGE.text,
+  opacity: 0.85,
+};
+
+const input = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid #e5e7eb",
+  outline: "none",
+  fontSize: 14,
+  background: "#fff",
+};
+
+const grid2 = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 12,
+};
+
+const btnPrimary = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid #111827",
+  background: "#111827",
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 900,
+};
+
+const btnDisabled = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid #e5e7eb",
+  background: "#e5e7eb",
+  color: "#6b7280",
+  cursor: "not-allowed",
+  fontWeight: 900,
+};
+
+const btnGhost = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid #e5e7eb",
+  background: "#fff",
+  color: "#111827",
+  cursor: "pointer",
+  fontWeight: 900,
+};
+
+const code = {
+  background: "#fff7ed",
+  border: "1px solid #fed7aa",
+  borderRadius: 8,
+  padding: "2px 6px",
+};

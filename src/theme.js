@@ -1,32 +1,28 @@
 // src/theme.js
-// Central theme tokens. App.jsx relies on these CSS variables.
-
 export function applyTheme() {
   const root = document.documentElement;
 
-  // Brighter orange background (requested)
-  // This is a vivid, warm orange-tint that still keeps cards readable.
-  root.style.setProperty("--harc-bg", "#FFE2BD");
+  // Brighter orange background (brand feel) — not just buttons
+  root.style.setProperty(
+    "--harc-bg",
+    "linear-gradient(135deg, #FFB25C 0%, #FFF1D8 42%, #D9FBEA 100%)"
+  );
 
-  // Surfaces
+  // Core surfaces
   root.style.setProperty("--harc-card", "#FFFFFF");
-
-  // Text
-  root.style.setProperty("--harc-text", "#111827");
+  root.style.setProperty("--harc-text", "#1F2937");
   root.style.setProperty("--harc-muted", "#6B7280");
+  root.style.setProperty("--harc-border", "#FED7AA");
 
-  // Brand
-  root.style.setProperty("--harc-orange", "#F97316"); // primary orange
-  root.style.setProperty("--harc-green", "#16A34A");  // primary green
+  // Brand colors (orange/green)
+  root.style.setProperty("--harc-orange", "#F97316");
+  root.style.setProperty("--harc-green", "#16A34A");
 
-  // Borders
-  root.style.setProperty("--harc-border", "#FDBA74"); // orange border that matches brighter bg
-
-  // Soft green (used for selected/active pills + cooler selection)
+  // Soft green accents
   root.style.setProperty("--harc-soft-green-bg", "#ECFDF5");
   root.style.setProperty("--harc-soft-green-border", "#A7F3D0");
 
-  // Danger (used in analytics note box)
+  // Danger styling (analytics note box)
   root.style.setProperty("--harc-danger-bg", "#FEF2F2");
   root.style.setProperty("--harc-danger-border", "#FECACA");
   root.style.setProperty("--harc-danger-text", "#991B1B");

@@ -1,160 +1,66 @@
 // src/context/AppContext.jsx
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useMemo,
-} from "react";
-import { COOLERS, MENU } from "../data";
-import { supabase } from "../supabaseClient";
+import React, { createContext, useContext, useMemo, useState } from "react";
 
 const AppContext = createContext(null);
 
-export function AppContextProvider({ children }) {
-  // --- CORE STATE ---
+export const AppProvider = ({ children }) => {
+  // Selected cooler (object from COOLERS)
+  const [selectedCooler, setSelectedCooler] = useState(null);
 
-  // Which cooler is selected on the /coolers screen
-  const [selectedCoolerId, setSelectedCoolerId] = useState(
-    COOLERS[0]?.id ?? null
-  );
+  // Cart is { [menuItemId]: qty }
+  const [cart, setCart] = useState({});
 
-  // Cart is an array of items: { id, name, price, qty }
-  const [cart, setCart] = useState([]);
+  // Simple survey capture (optional internal survey)
+  const [survey, setSurvey] = useState({
+    feeling: "",
+    speed: "",
+    comment: "",
+  });
 
-  // When we’re sending an order to Supabase
-  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  // Order receipt payload (for confirmation screen)
+  const [lastOrder, setLastOrder] = useState(null);
 
-  // --- DERIVED STATE ---
-
-  const selectedCooler = useMemo(
-    () => COOLERS.find((c) => c.id === selectedCoolerId) ?? null,
-    [selectedCoolerId]
-  );
-
-  const cartCount = useMemo(
-    () => cart.reduce((sum, item) => sum + item.qty, 0),
-    [cart]
-  );
-
-  const cartTotal = useMemo(
-    () => cart.reduce((sum, item) => sum + item.qty * item.price, 0),
-    [cart]
-  );
-
-  // --- CART HELPERS ---
-
-  function addToCart(menuItem) {
+  const addToCart = (itemId, qty = 1) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === menuItem.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === menuItem.id
-            ? { ...item, qty: item.qty + 1 }
-            : item
-        );
-      }
-      return [
-        ...prev,
-        {
-          id: menuItem.id,
-          name: menuItem.name,
-          price: menuItem.price,
-          qty: 1,
-        },
-      ];
+      const next = { ...prev };
+      next[itemId] = (next[itemId] || 0) + qty;
+      if (next[itemId] <= 0) delete next[itemId];
+      return next;
     });
-  }
+  };
 
-  function updateCartItemQty(itemId, qty) {
-    setCart((prev) =>
-      prev
-        .map((item) =>
-          item.id === itemId ? { ...item, qty: Number(qty) || 0 } : item
-        )
-        .filter((item) => item.qty > 0)
-    );
-  }
+  const setCartQty = (itemId, qty) => {
+    setCart((prev) => {
+      const next = { ...prev };
+      if (qty <= 0) delete next[itemId];
+      else next[itemId] = qty;
+      return next;
+    });
+  };
 
-  function clearCart() {
-    setCart([]);
-  }
-
-  // --- ORDER SUBMISSION TO SUPABASE ---
-
-  async function submitOrder() {
-    if (!selectedCoolerId || cart.length === 0) {
-      console.warn("[Order] Missing cooler or empty cart, not submitting.");
-      return { ok: false, error: "Missing cooler or empty cart" };
-    }
-
-    setIsSubmittingOrder(true);
-
-    try {
-      const itemsPayload = cart.map(({ id, name, price, qty }) => ({
-        id,
-        name,
-        price,
-        qty,
-      }));
-
-      const { error } = await supabase.from("orders").insert({
-        items: itemsPayload,
-        total: cartTotal,
-        cooler_id: selectedCoolerId,
-        source: "harc-app",
-      });
-
-      if (error) throw error;
-
-      clearCart();
-      return { ok: true };
-    } catch (err) {
-      console.error("[Order] Error submitting order:", err);
-      return { ok: false, error: err.message ?? "Unknown error" };
-    } finally {
-      setIsSubmittingOrder(false);
-    }
-  }
-
-  // --- CONTEXT VALUE ---
+  const clearCart = () => setCart({});
 
   const value = useMemo(
     () => ({
-      // state
-      selectedCoolerId,
       selectedCooler,
+      setSelectedCooler,
       cart,
-      cartCount,
-      cartTotal,
-      isSubmittingOrder,
-
-      // actions
-      setSelectedCoolerId,
       addToCart,
-      updateCartItemQty,
+      setCartQty,
       clearCart,
-      submitOrder,
+      survey,
+      setSurvey,
+      lastOrder,
+      setLastOrder,
     }),
-    [
-      selectedCoolerId,
-      selectedCooler,
-      cart,
-      cartCount,
-      cartTotal,
-      isSubmittingOrder,
-    ]
+    [selectedCooler, cart, survey, lastOrder]
   );
 
-  return (
-    <AppContext.Provider value={value}>{children}</AppContext.Provider>
-  );
-}
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
 
-// Hook your pages/components use
-export function useAppContext() {
+export const useApp = () => {
   const ctx = useContext(AppContext);
-  if (!ctx) {
-    throw new Error("useAppContext must be used inside AppContextProvider");
-  }
+  if (!ctx) throw new Error("useApp must be used inside <AppProvider />");
   return ctx;
-}
+};

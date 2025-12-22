@@ -1,71 +1,59 @@
 // src/data.js
 
-// Example cooler locations for HaRC
+/**
+ * IMPORTANT:
+ * - cooler_id is the stable ID saved into Supabase (orders.cooler_id, intake_requests.cooler_id, help_requests.cooler_id)
+ * - name/address can change later without breaking analytics
+ */
+
 export const COOLERS = [
   {
-    id: "cooler_1",
-    name: "HaRC Cooler – Family Health Center (East Warren)",
-    address: "1234 E Warren Ave, Detroit, MI",
+    id: 1,
+    cooler_id: "popoff",
+    name: "Popoff Health Center",
+    address: "611 W Grand Blvd, Detroit, MI",
+    notes: "Near front entrance",
   },
   {
-    id: "cooler_2",
-    name: "HaRC Cooler – Corner Market (Jefferson)",
-    address: "2200 E Jefferson Ave, Detroit, MI",
+    id: 2,
+    cooler_id: "hope",
+    name: "Hope Family Health Center",
+    address: "6071 W Outer Dr, Detroit, MI",
+    notes: "Lobby cooler",
   },
   {
-    id: "cooler_3",
-    name: "HaRC Cooler – Community Library (Gratiot)",
-    address: "8900 Gratiot Ave, Detroit, MI",
+    id: 3,
+    cooler_id: "partner_1",
+    name: "Community Partner Site",
+    address: "Detroit, MI",
+    notes: "Ask staff for access",
   },
 ];
 
-// Menu items; each one is mapped to a coolerId above
+/**
+ * MENU can be:
+ *  A) Flat array (same menu for all coolers), OR
+ *  B) Object keyed by cooler_id (different menu per cooler)
+ *
+ * App.jsx supports BOTH.
+ */
+
+// A) Flat array example:
 export const MENU = [
-  // Cooler 1 items
-  {
-    id: "item_1",
-    coolerId: "cooler_1",
-    name: "Turkey & Veggie Wrap",
-    price: 5.5,
-  },
-  {
-    id: "item_2",
-    coolerId: "cooler_1",
-    name: "Fresh Fruit Cup",
-    price: 3.0,
-  },
-  {
-    id: "item_3",
-    coolerId: "cooler_1",
-    name: "Low-Sugar Yogurt",
-    price: 2.75,
-  },
-
-  // Cooler 2 items
-  {
-    id: "item_4",
-    coolerId: "cooler_2",
-    name: "Grilled Chicken Salad",
-    price: 6.0,
-  },
-  {
-    id: "item_5",
-    coolerId: "cooler_2",
-    name: "Veggie Snack Pack",
-    price: 3.25,
-  },
-
-  // Cooler 3 items
-  {
-    id: "item_6",
-    coolerId: "cooler_3",
-    name: "Hummus & Whole Grain Pita",
-    price: 4.5,
-  },
-  {
-    id: "item_7",
-    coolerId: "cooler_3",
-    name: "Bottled Water",
-    price: 1.5,
-  },
+  { id: "item_1", name: "Turkey Wrap", desc: "Lean protein + veggies", price: 7.5 },
+  { id: "item_2", name: "Chicken Salad", desc: "Light + filling", price: 6.75 },
+  { id: "item_3", name: "Fruit Cup", desc: "Fresh seasonal mix", price: 3.5 },
+  { id: "item_4", name: "Granola Bar", desc: "Quick energy", price: 2.25 },
+  { id: "item_5", name: "Water", desc: "16.9 oz", price: 1.0 },
 ];
+
+/**
+ * If you want B) keyed menu, replace MENU above with:
+ *
+ * export const MENU = {
+ *   popoff: [ ... ],
+ *   hope: [ ... ],
+ *   partner_1: [ ... ],
+ *   default: [ ... ],
+ * };
+ */
