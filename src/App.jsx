@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { COOLERS, MENU } from "./data.js";
-import { supabase } from "./supabaseClient";
+import { supabase, SUPABASE_CONFIG_OK } from "./supabaseClient";
 import { applyTheme } from "./theme.js";
 
 const SURVEY_URL = "https://survey.mphi.org/surveys/?s=HD7C7FPHNCEWFXR3";
@@ -106,7 +106,7 @@ function startOfWeekISO(isoDate) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// EXCLUDE-ZERO helper (new)
+// Exclude-zero helper
 function bestByMetric(rows, metricKey) {
   const eligible = (rows || []).filter((r) => Number(r?.[metricKey] || 0) > 0);
   if (!eligible.length) return null;
@@ -186,6 +186,9 @@ const Shell = ({ children }) => {
       </header>
 
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "18px 16px 36px" }}>
+        {!SUPABASE_CONFIG_OK ? (
+          <ConfigErrorCard />
+        ) : null}
         {children}
       </main>
 
@@ -297,6 +300,21 @@ const Pill = ({ active, label, onClick }) => {
   );
 };
 
+function ConfigErrorCard() {
+  return (
+    <Card style={{ marginBottom: 14, borderColor: "var(--harc-danger-border)", background: "var(--harc-danger-bg)" }}>
+      <div style={{ fontWeight: 900, fontSize: 16 }}>Production Config Required</div>
+      <div style={{ marginTop: 8, color: "var(--harc-danger-text)", whiteSpace: "pre-wrap" }}>
+        Supabase environment variables are missing.
+        {"\n\n"}Fix in Vercel → Project Settings → Environment Variables (Production):
+        {"\n"}- VITE_SUPABASE_URL
+        {"\n"}- VITE_SUPABASE_ANON_KEY
+        {"\n\n"}Then redeploy.
+      </div>
+    </Card>
+  );
+}
+
 export default function App() {
   useEffect(() => {
     applyTheme();
@@ -351,6 +369,11 @@ export default function App() {
   const clearCart = () => setCart([]);
 
   const checkout = async () => {
+    if (!SUPABASE_CONFIG_OK || !supabase) {
+      alert("Supabase is not configured. Set Vercel env vars (Production) and redeploy.");
+      return;
+    }
+
     if (!selectedCoolerId) {
       alert("Select a cooler first.");
       navigate("/");
@@ -775,6 +798,11 @@ function HelpPage({ selectedCoolerId }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!SUPABASE_CONFIG_OK || !supabase) {
+      alert("Supabase is not configured. Set Vercel env vars (Production) and redeploy.");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = { name, phone, topic, notes, cooler_id: selectedCoolerId || null };
@@ -831,35 +859,17 @@ function HelpPage({ selectedCoolerId }) {
   );
 }
 
-function Field({ label, children }) {
-  return (
-    <label style={{ display: "grid", gap: 6 }}>
-      <div style={{ fontWeight: 900, fontSize: 13 }}>{label}</div>
-      {children}
-    </label>
-  );
-}
-
-function inputStyle() {
-  return {
-    width: "100%",
-    padding: "12px 12px",
-    borderRadius: 14,
-    border: "1px solid var(--harc-border)",
-    outline: "none",
-    fontSize: 14,
-    background: "white",
-  };
-}
-
-/* ------------------------- Manager Pages ------------------------- */
-
 function ManagerHome({ unlocked, setUnlocked, onGoAnalytics }) {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
 
   const unlock = async (e) => {
     e.preventDefault();
+    if (!SUPABASE_CONFIG_OK || !supabase) {
+      alert("Supabase is not configured. Set Vercel env vars (Production) and redeploy.");
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("manager_unlock", { pin });
@@ -942,10 +952,9 @@ function ManagerAnalytics({ unlocked }) {
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [rows, setRows] = useState([]); // per-cooler summary rows
-  const [ordersRaw, setOrdersRaw] = useState([]); // raw orders in range (for rollups)
-
-  const [tab, setTab] = useState("coolers"); // coolers | weekly | daily
+  const [rows, setRows] = useState([]);
+  const [ordersRaw, setOrdersRaw] = useState([]);
+  const [tab, setTab] = useState("coolers");
 
   const normalized = useMemo(() => {
     const byId = new Map();
@@ -975,7 +984,6 @@ function ManagerAnalytics({ unlocked }) {
     );
   }, [normalized]);
 
-  // TOP PERFORMERS (exclude zeros)
   const topRevenue = useMemo(() => bestByMetric(normalized, "revenue_total"), [normalized]);
   const topOrders = useMemo(() => bestByMetric(normalized, "orders_count"), [normalized]);
   const topItems = useMemo(() => bestByMetric(normalized, "items_count"), [normalized]);
@@ -997,7 +1005,7 @@ function ManagerAnalytics({ unlocked }) {
       byDay.set(dayISO, cur);
     }
 
-    return Array.from(byDay.values()).sort((a, b) => (a.day > b.day ? -1 : 1)); // newest first
+    return Array.from(byDay.values()).sort((a, b) => (a.day > b.day ? -1 : 1));
   }, [ordersRaw]);
 
   const weeklyRollups = useMemo(() => {
@@ -1028,7 +1036,7 @@ function ManagerAnalytics({ unlocked }) {
       byWeek.set(key, cur);
     }
 
-    return Array.from(byWeek.values()).sort((a, b) => (a.week_start > b.week_start ? -1 : 1)); // newest first
+    return Array.from(byWeek.values()).sort((a, b) => (a.week_start > b.week_start ? -1 : 1));
   }, [ordersRaw]);
 
   const fetchOrdersForRollups = async () => {
@@ -1044,6 +1052,8 @@ function ManagerAnalytics({ unlocked }) {
 
   const fetchAnalytics = async () => {
     if (!unlocked) return;
+    if (!SUPABASE_CONFIG_OK || !supabase) return;
+
     setLoading(true);
     setErrorMsg("");
 
@@ -1054,49 +1064,30 @@ function ManagerAnalytics({ unlocked }) {
       });
       if (error) throw error;
       setRows(Array.isArray(data) ? data : []);
-
       await fetchOrdersForRollups();
     } catch (err) {
       console.error(err);
-
-      try {
-        const { data: orders, error: qerr } = await supabase
-          .from("orders")
-          .select("cooler_id,total,items,created_at")
-          .gte("created_at", `${dateFrom}T00:00:00`)
-          .lte("created_at", `${dateTo}T23:59:59`);
-        if (qerr) throw qerr;
-
-        setOrdersRaw(Array.isArray(orders) ? orders : []);
-
-        const roll = new Map();
-        for (const o of orders || []) {
-          const id = o.cooler_id;
-          const cur = roll.get(id) || { cooler_id: id, orders_count: 0, items_count: 0, revenue_total: 0 };
-          cur.orders_count += 1;
-          cur.revenue_total += Number(o.total || 0);
-
-          const items = Array.isArray(o.items) ? o.items : [];
-          cur.items_count += items.reduce((s, x) => s + Number(x.qty || 0), 0);
-
-          roll.set(id, cur);
-        }
-
-        setRows(Array.from(roll.values()));
-        setErrorMsg(`RPC not available. Using fallback query from orders table.\n(${err?.message || "RPC error"})`);
-      } catch (fallbackErr) {
-        console.error(fallbackErr);
-        setErrorMsg(fallbackErr?.message || "Analytics failed.");
-      }
+      setErrorMsg(err?.message || "Analytics failed.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (unlocked) fetchAnalytics();
+    if (unlocked && SUPABASE_CONFIG_OK && supabase) fetchAnalytics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlocked]);
+
+  if (!SUPABASE_CONFIG_OK || !supabase) {
+    return (
+      <Card>
+        <div style={{ fontWeight: 900, fontSize: 18 }}>Analytics unavailable</div>
+        <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
+          Supabase is not configured for this environment. Set Vercel env vars (Production) and redeploy.
+        </div>
+      </Card>
+    );
+  }
 
   const downloadCSV = () => {
     const header = ["cooler_id", "cooler_name", "orders_count", "items_count", "revenue_total"];
@@ -1155,56 +1146,13 @@ function ManagerAnalytics({ unlocked }) {
 
   const setRange = (rangeId) => {
     const t = todayISO();
-
-    if (rangeId === "7") {
-      setDateFrom(addDaysISO(t, -7));
-      setDateTo(t);
-      return;
-    }
-    if (rangeId === "30") {
-      setDateFrom(addDaysISO(t, -30));
-      setDateTo(t);
-      return;
-    }
-    if (rangeId === "mtd") {
-      setDateFrom(monthStartISO(t));
-      setDateTo(t);
-      return;
-    }
-    if (rangeId === "this_month") {
-      setDateFrom(monthStartISO(t));
-      setDateTo(monthEndISO(t));
-      return;
-    }
-    if (rangeId === "last_month") {
-      setDateFrom(prevMonthStartISO(t));
-      setDateTo(prevMonthEndISO(t));
-      return;
-    }
-    if (rangeId === "all") {
-      setDateFrom("2000-01-01");
-      setDateTo(t);
-      return;
-    }
+    if (rangeId === "7") return (setDateFrom(addDaysISO(t, -7)), setDateTo(t));
+    if (rangeId === "30") return (setDateFrom(addDaysISO(t, -30)), setDateTo(t));
+    if (rangeId === "mtd") return (setDateFrom(monthStartISO(t)), setDateTo(t));
+    if (rangeId === "this_month") return (setDateFrom(monthStartISO(t)), setDateTo(monthEndISO(t)));
+    if (rangeId === "last_month") return (setDateFrom(prevMonthStartISO(t)), setDateTo(prevMonthEndISO(t)));
+    if (rangeId === "all") return (setDateFrom("2000-01-01"), setDateTo(t));
   };
-
-  const rangeKey = useMemo(() => `${dateFrom}_${dateTo}`, [dateFrom, dateTo]);
-
-  if (!unlocked) {
-    return (
-      <Card>
-        <div style={{ fontWeight: 900, fontSize: 18 }}>Locked</div>
-        <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-          Go to Manager and unlock with PIN to view analytics.
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <Link to="/manager" style={{ fontWeight: 900, textDecoration: "none" }}>
-            Go to Manager
-          </Link>
-        </div>
-      </Card>
-    );
-  }
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -1213,7 +1161,7 @@ function ManagerAnalytics({ unlocked }) {
           <div>
             <div style={{ fontWeight: 900, fontSize: 18 }}>Manager Analytics</div>
             <div style={{ color: "var(--harc-muted)", marginTop: 6 }}>
-              Rollups by cooler + weekly/daily summaries (includes zero-activity locations).
+              Rollups by cooler + weekly/daily summaries.
             </div>
           </div>
 
@@ -1247,10 +1195,6 @@ function ManagerAnalytics({ unlocked }) {
           <Pill label="This Month" onClick={() => setRange("this_month")} />
           <Pill label="Last Month" onClick={() => setRange("last_month")} />
           <Pill label="All Time" onClick={() => setRange("all")} />
-          <div style={{ color: "var(--harc-muted)", fontSize: 12, alignSelf: "center", marginLeft: 6 }}>
-            Range: <span style={{ fontWeight: 900 }}>{dateFrom}</span> →{" "}
-            <span style={{ fontWeight: 900 }}>{dateTo}</span>
-          </div>
         </div>
 
         <div
@@ -1285,7 +1229,7 @@ function ManagerAnalytics({ unlocked }) {
               background: "var(--harc-danger-bg)",
             }}
           >
-            <div style={{ fontWeight: 900 }}>Note</div>
+            <div style={{ fontWeight: 900 }}>Error</div>
             <div style={{ color: "var(--harc-danger-text)", marginTop: 6, whiteSpace: "pre-wrap" }}>
               {errorMsg}
             </div>
@@ -1314,7 +1258,6 @@ function ManagerAnalytics({ unlocked }) {
           </Card>
         </div>
 
-        {/* Top performers (exclude zeros) */}
         <div
           style={{
             marginTop: 10,
@@ -1335,9 +1278,7 @@ function ManagerAnalytics({ unlocked }) {
                 <div style={{ marginTop: 8, fontWeight: 900, fontSize: 20 }}>{money(topRevenue.revenue_total)}</div>
               </>
             ) : (
-              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>
-                No revenue in this date range.
-              </div>
+              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No revenue in this date range.</div>
             )}
           </Card>
 
@@ -1353,9 +1294,7 @@ function ManagerAnalytics({ unlocked }) {
                 <div style={{ marginTop: 8, fontWeight: 900, fontSize: 20 }}>{topOrders.orders_count}</div>
               </>
             ) : (
-              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>
-                No orders in this date range.
-              </div>
+              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No orders in this date range.</div>
             )}
           </Card>
 
@@ -1371,9 +1310,7 @@ function ManagerAnalytics({ unlocked }) {
                 <div style={{ marginTop: 8, fontWeight: 900, fontSize: 20 }}>{topItems.items_count}</div>
               </>
             ) : (
-              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>
-                No items sold in this date range.
-              </div>
+              <div style={{ marginTop: 8, color: "var(--harc-muted)" }}>No items sold in this date range.</div>
             )}
           </Card>
         </div>
@@ -1382,10 +1319,6 @@ function ManagerAnalytics({ unlocked }) {
           <Pill active={tab === "coolers"} label="By Cooler" onClick={() => setTab("coolers")} />
           <Pill active={tab === "weekly"} label="Weekly Rollups" onClick={() => setTab("weekly")} />
           <Pill active={tab === "daily"} label="Daily Rollups" onClick={() => setTab("daily")} />
-          <div style={{ color: "var(--harc-muted)", fontSize: 12, alignSelf: "center", marginLeft: 6 }}>
-            Orders loaded for rollups: <span style={{ fontWeight: 900 }}>{(ordersRaw || []).length}</span>{" "}
-            <span style={{ color: "var(--harc-muted)" }}>(key: {rangeKey})</span>
-          </div>
         </div>
       </Card>
 
@@ -1440,10 +1373,6 @@ function ManagerAnalytics({ unlocked }) {
       {tab === "weekly" ? (
         <Card>
           <div style={{ fontWeight: 900, fontSize: 16 }}>Weekly Rollups</div>
-          <div style={{ color: "var(--harc-muted)", fontSize: 12, marginTop: 6 }}>
-            Week starts Monday. Revenue and items are summed from orders in the selected date range.
-          </div>
-
           <div style={{ overflowX: "auto", marginTop: 10 }}>
             <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
@@ -1473,7 +1402,6 @@ function ManagerAnalytics({ unlocked }) {
                         <div style={{ fontWeight: 900 }}>
                           {w.week_start} → {w.week_end}
                         </div>
-                        <div style={{ color: "var(--harc-muted)", fontSize: 12 }}>Week of {w.week_start}</div>
                       </td>
                       <td style={tdStyle()}>{w.orders}</td>
                       <td style={tdStyle()}>{w.items}</td>
@@ -1483,9 +1411,7 @@ function ManagerAnalytics({ unlocked }) {
                 ) : (
                   <tr>
                     <td style={tdStyle()} colSpan={4}>
-                      <span style={{ color: "var(--harc-muted)" }}>
-                        No orders found in this range. Try “All Time” or expand the dates, then Refresh.
-                      </span>
+                      <span style={{ color: "var(--harc-muted)" }}>No orders in this range.</span>
                     </td>
                   </tr>
                 )}
@@ -1498,10 +1424,6 @@ function ManagerAnalytics({ unlocked }) {
       {tab === "daily" ? (
         <Card>
           <div style={{ fontWeight: 900, fontSize: 16 }}>Daily Rollups</div>
-          <div style={{ color: "var(--harc-muted)", fontSize: 12, marginTop: 6 }}>
-            Daily totals from orders in the selected date range.
-          </div>
-
           <div style={{ overflowX: "auto", marginTop: 10 }}>
             <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
@@ -1538,9 +1460,7 @@ function ManagerAnalytics({ unlocked }) {
                 ) : (
                   <tr>
                     <td style={tdStyle()} colSpan={4}>
-                      <span style={{ color: "var(--harc-muted)" }}>
-                        No orders found in this range. Try “All Time” or expand the dates, then Refresh.
-                      </span>
+                      <span style={{ color: "var(--harc-muted)" }}>No orders in this range.</span>
                     </td>
                   </tr>
                 )}
@@ -1551,6 +1471,27 @@ function ManagerAnalytics({ unlocked }) {
       ) : null}
     </div>
   );
+}
+
+function Field({ label, children }) {
+  return (
+    <label style={{ display: "grid", gap: 6 }}>
+      <div style={{ fontWeight: 900, fontSize: 13 }}>{label}</div>
+      {children}
+    </label>
+  );
+}
+
+function inputStyle() {
+  return {
+    width: "100%",
+    padding: "12px 12px",
+    borderRadius: 14,
+    border: "1px solid var(--harc-border)",
+    outline: "none",
+    fontSize: 14,
+    background: "white",
+  };
 }
 
 function tdStyle() {
