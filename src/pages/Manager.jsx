@@ -1,7 +1,7 @@
-// src/Manager.jsx
+// src/pages/Manager.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "./supabaseClient";
-import { COOLERS, ORANGE } from "./data.js";
+import { supabase } from "../supabaseClient";
+import { COOLERS, ORANGE } from "../data.js";
 
 /**
  * Manager.jsx
@@ -10,7 +10,10 @@ import { COOLERS, ORANGE } from "./data.js";
  *     - public.v_orders_daily_counts (day, cooler_id, orders, revenue)
  *     - public.v_intake_daily_counts (day, cooler_id, intakes)  (optional)
  * - Weekly rollups are computed in JS (no dependency on a weekly DB view)
- * - Excludes ZERO-activity coolers in analytics tables/cards display
+ *
+ * IMPORTANT:
+ * - Default behavior EXCLUDES zero-activity coolers from tables/top lists.
+ * - You can toggle “Show zero-activity coolers” ON if you want to audit all.
  */
 
 const TABS = ["analytics", "orders", "help", "restock"];
@@ -28,11 +31,9 @@ const toISODate = (d) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 const startOfWeekISO = (isoDateStr) => {
-  // isoDateStr: YYYY-MM-DD
   const d = new Date(`${isoDateStr}T00:00:00`);
-  // Sunday=0 ... Saturday=6. We'll use Monday as week start.
   const day = d.getDay();
-  const diffToMonday = (day + 6) % 7; // Mon=0, Tue=1 ... Sun=6
+  const diffToMonday = (day + 6) % 7; // Mon=0 ... Sun=6
   d.setDate(d.getDate() - diffToMonday);
   return toISODate(d);
 };
@@ -109,12 +110,13 @@ export default function Manager() {
 
   // Analytics state
   const [rangeId, setRangeId] = useState("30");
+  const [showZeros, setShowZeros] = useState(false); // default: exclude zeros
   const [loading, setLoading] = useState(false);
-  const [ordersDaily, setOrdersDaily] = useState([]); // from view
-  const [intakeDaily, setIntakeDaily] = useState([]); // from view (optional)
+  const [ordersDaily, setOrdersDaily] = useState([]);
+  const [intakeDaily, setIntakeDaily] = useState([]);
   const [loadError, setLoadError] = useState("");
 
-  // Orders/Help/Restock
+  // Other tabs (safe placeholders)
   const [recentOrders, setRecentOrders] = useState([]);
   const [recentHelp, setRecentHelp] = useState([]);
   const [recentRestock, setRecentRestock] = useState([]);
@@ -123,11 +125,10 @@ export default function Manager() {
     if (rangeId === "all") return null;
     const days = Number(rangeId);
     const d = new Date();
-    d.setDate(d.getDate() - (days - 1)); // inclusive window
+    d.setDate(d.getDate() - (days - 1));
     return toISODate(d);
   }, [rangeId]);
 
-  // Load unlock state from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(LS_KEY);
     if (saved === "true") setUnlocked(true);
@@ -173,14 +174,11 @@ export default function Manager() {
     setTab("analytics");
   };
 
-  // Core analytics loader
   const loadAnalytics = async () => {
     setLoading(true);
     setLoadError("");
 
     try {
-      // Orders daily counts view (preferred)
-      // Expected columns: day, cooler_id, orders, revenue
       let q1 = supabase
         .from("v_orders_daily_counts")
         .select("day,cooler_id,orders,revenue")
@@ -193,8 +191,7 @@ export default function Manager() {
 
       setOrdersDaily(Array.isArray(od) ? od : []);
 
-      // Intake daily counts view (optional)
-      // Expected columns: day, cooler_id, intakes
+      // Intake view is optional
       let intake = [];
       const q2 = supabase
         .from("v_intake_daily_counts")
@@ -205,8 +202,6 @@ export default function Manager() {
 
       const { data: id, error: e2 } = await q2f;
       if (!e2 && Array.isArray(id)) intake = id;
-
-      // If the view doesn't exist, we keep intake empty (no crash)
       setIntakeDaily(intake);
     } catch (err) {
       setLoadError(err?.message || "Failed to load analytics.");
@@ -215,7 +210,6 @@ export default function Manager() {
     }
   };
 
-  // Load “recent” rows for other tabs (safe + simple)
   const loadOperational = async () => {
     try {
       const { data: o, error: eo } = await supabase
@@ -223,7 +217,6 @@ export default function Manager() {
         .select("id,created_at,cooler_id,total,status")
         .order("created_at", { ascending: false })
         .limit(25);
-
       if (!eo && Array.isArray(o)) setRecentOrders(o);
 
       const { data: h, error: eh } = await supabase
@@ -231,7 +224,6 @@ export default function Manager() {
         .select("id,created_at,cooler_id,need,phone,status")
         .order("created_at", { ascending: false })
         .limit(25);
-
       if (!eh && Array.isArray(h)) setRecentHelp(h);
 
       const { data: r, error: er } = await supabase
@@ -239,10 +231,9 @@ export default function Manager() {
         .select("id,created_at,cooler_id,items_needed,status")
         .order("created_at", { ascending: false })
         .limit(25);
-
       if (!er && Array.isArray(r)) setRecentRestock(r);
     } catch {
-      // silent; these tabs are secondary
+      // silent
     }
   };
 
@@ -253,12 +244,10 @@ export default function Manager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unlocked, rangeId]);
 
-  // Build “complete” cooler maps (still used for totals), but UI will filter out zeros
   const ordersByCooler = useMemo(() => {
     const base = {};
-    for (const c of COOLERS) {
-      base[c.cooler_id] = { orders: 0, revenue: 0 };
-    }
+    for (const c of COOLERS) base[c.cooler_id] = { orders: 0, revenue: 0 };
+
     for (const row of ordersDaily) {
       const id = row.cooler_id;
       if (!base[id]) base[id] = { orders: 0, revenue: 0 };
@@ -270,9 +259,8 @@ export default function Manager() {
 
   const intakeByCooler = useMemo(() => {
     const base = {};
-    for (const c of COOLERS) {
-      base[c.cooler_id] = { intakes: 0 };
-    }
+    for (const c of COOLERS) base[c.cooler_id] = { intakes: 0 };
+
     for (const row of intakeDaily) {
       const id = row.cooler_id;
       if (!base[id]) base[id] = { intakes: 0 };
@@ -296,8 +284,7 @@ export default function Manager() {
   }, [ordersByCooler, intakeByCooler]);
 
   const dailySeries = useMemo(() => {
-    // Roll up daily totals across all coolers
-    const m = new Map(); // day -> {orders, revenue}
+    const m = new Map();
     for (const row of ordersDaily) {
       const day = row.day;
       const cur = m.get(day) || { day, orders: 0, revenue: 0 };
@@ -309,8 +296,7 @@ export default function Manager() {
   }, [ordersDaily]);
 
   const weeklySeries = useMemo(() => {
-    // Compute weekly totals by Monday-start week
-    const m = new Map(); // week_start -> {week_start, orders, revenue}
+    const m = new Map();
     for (const d of dailySeries) {
       const wk = startOfWeekISO(d.day);
       const cur = m.get(wk) || { week_start: wk, orders: 0, revenue: 0 };
@@ -323,8 +309,7 @@ export default function Manager() {
     );
   }, [dailySeries]);
 
-  const allCoolerRows = useMemo(() => {
-    // Keep the canonical COOLERS order, but include any unknown IDs at bottom
+  const coolerRowsAll = useMemo(() => {
     const knownIds = new Set(COOLERS.map((c) => c.cooler_id));
     const allIds = Array.from(
       new Set([...Object.keys(ordersByCooler), ...Object.keys(intakeByCooler)])
@@ -345,12 +330,12 @@ export default function Manager() {
     }));
   }, [ordersByCooler, intakeByCooler]);
 
-  // ✅ Active-only rows (exclude all-zero coolers)
-  const activeCoolerRows = useMemo(() => {
-    return allCoolerRows.filter(
+  const coolerRows = useMemo(() => {
+    if (showZeros) return coolerRowsAll;
+    return coolerRowsAll.filter(
       (r) => (r.orders || 0) > 0 || (r.revenue || 0) > 0 || (r.intakes || 0) > 0
     );
-  }, [allCoolerRows]);
+  }, [coolerRowsAll, showZeros]);
 
   const exportDailyCSV = () => {
     const rows = [
@@ -380,12 +365,27 @@ export default function Manager() {
     downloadCSV(`harc_orders_weekly_${suffix}.csv`, rows);
   };
 
+  const exportCoolerCSV = () => {
+    const rows = [
+      ["cooler_id", "cooler_name", "orders", "revenue", "intakes"],
+      ...coolerRows.map((r) => [
+        r.cooler_id,
+        r.name,
+        Number(r.orders || 0),
+        Number(r.revenue || 0),
+        Number(r.intakes || 0),
+      ]),
+    ];
+    const suffix = startDate ? `${startDate}_to_today` : "all_time";
+    downloadCSV(`harc_cooler_rollup_${suffix}.csv`, rows);
+  };
+
   if (!unlocked) {
     return (
       <div
         style={{
           minHeight: "100vh",
-          background: "var(--harc-bg, #FFF7ED)",
+          background: ORANGE.bg,
           color: ORANGE.text,
           padding: 20,
         }}
@@ -477,7 +477,7 @@ export default function Manager() {
     <div
       style={{
         minHeight: "100vh",
-        background: "var(--harc-bg, #FFF7ED)",
+        background: ORANGE.bg,
         color: ORANGE.text,
         padding: 18,
       }}
@@ -507,7 +507,7 @@ export default function Manager() {
                 HaRC Manager Dashboard
               </div>
               <div style={{ fontSize: 12, opacity: 0.75 }}>
-                cooler_id is canonical • analytics grouped by cooler_id
+                cooler_id is canonical • grouped by cooler_id
               </div>
             </div>
           </div>
@@ -587,23 +587,14 @@ export default function Manager() {
                 >
                   {loading ? "Refreshing…" : "Refresh"}
                 </button>
-                <button
-                  onClick={exportDailyCSV}
-                  style={{
-                    ...buttonBase,
-                    background: ORANGE.card,
-                  }}
-                >
+                <button onClick={exportDailyCSV} style={{ ...buttonBase }}>
                   Export Daily CSV
                 </button>
-                <button
-                  onClick={exportWeeklyCSV}
-                  style={{
-                    ...buttonBase,
-                    background: ORANGE.card,
-                  }}
-                >
+                <button onClick={exportWeeklyCSV} style={{ ...buttonBase }}>
                   Export Weekly CSV
+                </button>
+                <button onClick={exportCoolerCSV} style={{ ...buttonBase }}>
+                  Export Cooler CSV
                 </button>
               </div>
             </div>
@@ -644,6 +635,33 @@ export default function Manager() {
               />
             </div>
 
+            {/* Toggle: show zeros */}
+            <div style={{ marginTop: 10 }}>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: `1px solid ${ORANGE.border}`,
+                  background: ORANGE.card,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showZeros}
+                  onChange={(e) => setShowZeros(e.target.checked)}
+                />
+                Show zero-activity coolers
+                <span style={{ fontSize: 12, opacity: 0.7, fontWeight: 700 }}>
+                  (default: hidden)
+                </span>
+              </label>
+            </div>
+
             {/* Cooler breakdown */}
             <div
               style={{
@@ -665,7 +683,7 @@ export default function Manager() {
                 }}
               >
                 <div style={{ fontWeight: 900, fontSize: 16 }}>
-                  By Cooler (active only)
+                  By Cooler {showZeros ? "(includes zeros)" : "(zeros excluded)"}
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.7 }}>
                   Range: {startDate ? `${startDate} → today` : "All time"}
@@ -684,8 +702,8 @@ export default function Manager() {
                     </tr>
                   </thead>
                   <tbody>
-                    {activeCoolerRows.length ? (
-                      activeCoolerRows.map((r) => (
+                    {coolerRows.length ? (
+                      coolerRows.map((r) => (
                         <tr key={r.cooler_id}>
                           <Td>
                             <div style={{ fontWeight: 900 }}>{r.name}</div>
@@ -711,7 +729,7 @@ export default function Manager() {
                       </tr>
                     )}
 
-                    {/* Totals row (still shows overall totals) */}
+                    {/* Totals row */}
                     <tr>
                       <Td
                         style={{
