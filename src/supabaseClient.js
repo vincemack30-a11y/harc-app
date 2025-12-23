@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// 🚫 NEVER throw at import time
+// Log only — NEVER throw during import
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error("[HaRC] Missing Supabase env vars", {
     hasUrl: Boolean(supabaseUrl),
@@ -11,7 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   });
 }
 
-// ✅ Always export a client object
+// Always export a usable object
 export const supabase =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey, {
@@ -21,12 +21,15 @@ export const supabase =
         },
       })
     : {
-        // Safe no-op stub to prevent hard crash
+        // Safe no-op client to prevent crashes
         from() {
           return {
             select: async () => ({ data: [], error: null }),
             insert: async () => ({ data: null, error: null }),
             rpc: async () => ({ data: null, error: null }),
           };
+        },
+        auth: {
+          getSession: async () => ({ data: null, error: null }),
         },
       };
