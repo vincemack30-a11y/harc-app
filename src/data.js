@@ -1,11 +1,23 @@
-// src/data.js
+export const BRAND = {
+  orangeBg: "#FFF7ED",
+  orangeCard: "#FFFFFF",
+  orangeBorder: "#FED7AA",
+  orangeAccent: "#F97316",
+  orangeDeep: "#C2410C",
+  text: "#111827",
+  muted: "#6B7280",
+  green: "#16A34A",
+  greenDeep: "#166534",
+};
+
+export const SURVEY_URL =
+  "https://survey.mphi.org/surveys/?s=HD7C7FPHNCEWFXR3";
 
 /**
  * IMPORTANT:
- * - cooler_id is the stable ID saved into Supabase (orders.cooler_id, intake_requests.cooler_id, help_requests.cooler_id)
+ * - cooler_id is the stable ID saved into Supabase (orders.cooler_id, help_requests.cooler_id)
  * - name/address can change later without breaking analytics
  */
-
 export const COOLERS = [
   {
     id: 1,
@@ -30,30 +42,35 @@ export const COOLERS = [
   },
 ];
 
-/**
- * MENU can be:
- *  A) Flat array (same menu for all coolers), OR
- *  B) Object keyed by cooler_id (different menu per cooler)
- *
- * App.jsx supports BOTH.
- */
-
-// A) Flat array example:
 export const MENU = [
-  { id: "item_1", name: "Turkey Wrap", desc: "Lean protein + veggies", price: 7.5 },
-  { id: "item_2", name: "Chicken Salad", desc: "Light + filling", price: 6.75 },
-  { id: "item_3", name: "Fruit Cup", desc: "Fresh seasonal mix", price: 3.5 },
-  { id: "item_4", name: "Granola Bar", desc: "Quick energy", price: 2.25 },
-  { id: "item_5", name: "Water", desc: "16.9 oz", price: 1.0 },
+  {
+    sku: "wrap_veg_01",
+    name: "Veggie Wrap",
+    price: 7.5,
+    tags: ["Fresh", "Grab-and-go"],
+  },
+  {
+    sku: "salad_caesar_01",
+    name: "Chicken Caesar Salad",
+    price: 9.25,
+    tags: ["Protein", "Classic"],
+  },
+  {
+    sku: "fruit_cup_01",
+    name: "Fruit Cup",
+    price: 4.0,
+    tags: ["Snack", "Healthy"],
+  },
+  {
+    sku: "yogurt_01",
+    name: "Greek Yogurt",
+    price: 3.5,
+    tags: ["Protein", "Breakfast"],
+  },
+  {
+    sku: "water_01",
+    name: "Water",
+    price: 1.5,
+    tags: ["Hydration"],
+  },
 ];
-
-/**
- * If you want B) keyed menu, replace MENU above with:
- *
- * export const MENU = {
- *   popoff: [ ... ],
- *   hope: [ ... ],
- *   partner_1: [ ... ],
- *   default: [ ... ],
- * };
- */

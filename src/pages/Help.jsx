@@ -1,55 +1,90 @@
-// src/pages/Help.jsx
-import React from "react";
+import React, { useState } from "react";
+import { supabase } from "../supabaseClient";
 import { Link } from "react-router-dom";
 
-function HelpPage({ selectedCooler }) {
+export default function Help({ ctx }) {
+  const cooler_id = ctx?.selectedCoolerId || null;
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [need, setNeed] = useState("Medicaid/Medicare assistance");
+  const [details, setDetails] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function submit() {
+    setMsg("");
+    setIsSending(true);
+
+    try {
+      const payload = {
+        cooler_id,
+        name: name?.trim() || null,
+        phone: phone?.trim() || null,
+        need,
+        details: details?.trim() || null,
+        created_at: new Date().toISOString(),
+        status: "new",
+      };
+
+      const { error } = await supabase.from("help_requests").insert([payload]);
+      if (error) throw error;
+
+      setMsg("Submitted. A team member will follow up.");
+      setName("");
+      setPhone("");
+      setDetails("");
+    } catch (e) {
+      console.error("[HaRC] help submit error", e);
+      setMsg(e?.message || "Submit failed. Check Supabase table + RLS + env vars.");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-2">Help & Program Info</h2>
-      <p className="text-sm mb-3">
-        Learn more about HaRC Healthy Coolers and how to get support.
-      </p>
+    <div className="card">
+      <h1 className="h1">Get Help</h1>
+      <p className="h2">Request assistance (Medicaid/Medicare, primary care, food resources, etc.).</p>
 
-      <h3 className="text-sm font-semibold mb-1">What is HaRC?</h3>
-      <p className="text-sm mb-3">
-        The Healthy & Resilient Communities (HaRC) program connects Detroit
-        residents to healthier food options through Byte coolers, community
-        partners, and care teams focused on Medicaid, Medicare, and primary
-        care access.
-      </p>
+      <hr className="hr" />
 
-      <h3 className="text-sm font-semibold mb-1">Need help with insurance?</h3>
-      <p className="text-sm mb-2">
-        You can ask a community health worker to reach out to you about:
-      </p>
-      <ul className="list-disc list-inside text-sm mb-3">
-        <li>Medicaid or Medicare enrollment or questions</li>
-        <li>Finding a primary care provider</li>
-        <li>Coverage questions and benefits</li>
-      </ul>
+      <div style={{ display: "grid", gap: 10 }}>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name (optional)" />
+        <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number (optional)" />
 
-      {selectedCooler && (
-        <p className="text-xs mb-2">
-          If you&apos;re at a cooler now, we&apos;ll attach this location to
-          your request: <strong>{selectedCooler.name}</strong>.
-        </p>
-      )}
+        <select className="input" value={need} onChange={(e) => setNeed(e.target.value)}>
+          <option>Medicaid/Medicare assistance</option>
+          <option>Primary care appointment</option>
+          <option>Nutrition resources</option>
+          <option>Food access support</option>
+          <option>Other</option>
+        </select>
 
-      <Link
-        to="/intake"
-        className="inline-block mt-1 mb-4 px-4 py-2 rounded bg-black text-white text-sm"
-      >
-        Request help with coverage
-      </Link>
+        <input
+          className="input"
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          placeholder="Short details (optional)"
+        />
 
-      <h3 className="text-sm font-semibold mb-1">Technical note</h3>
-      <p className="text-xs">
-        This is a demo application built for testing HaRC workflows. If you run
-        into bugs, please share the time, what you clicked, and what you
-        expected to see so the team can improve the tool.
-      </p>
+        <button className="btn btn-green" disabled={isSending} onClick={submit}>
+          {isSending ? "Sending..." : "Submit Request"}
+        </button>
+
+        {msg ? <div className="small">{msg}</div> : null}
+      </div>
+
+      <hr className="hr" />
+
+      <div className="row">
+        <Link to="/coolers" className="btn btn-primary">
+          Back to Coolers
+        </Link>
+        <Link to="/menu" className="btn">
+          Back to Menu
+        </Link>
+      </div>
     </div>
   );
 }
-
-export default HelpPage;

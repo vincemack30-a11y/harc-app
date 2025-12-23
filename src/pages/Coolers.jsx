@@ -1,49 +1,39 @@
-// src/pages/Coolers.jsx
 import React from "react";
-import { Link } from "react-router-dom";
-import { COOLERS } from "../data";
-import { useAppContext } from "../context/AppContext";
 
-export default function CoolersPage() {
-  const { selectedCoolerId, setSelectedCoolerId } = useAppContext();
-
-  const handleSelect = (coolerId) => {
-    if (setSelectedCoolerId) {
-      setSelectedCoolerId(coolerId);
-    }
-  };
+export default function Coolers({ ctx }) {
+  const { COOLERS, selectedCoolerId, pickCooler } = ctx;
 
   return (
-    <main className="page">
-      <h1 className="page-title">Choose a cooler</h1>
-      <p className="page-intro">
-        Pick the HaRC cooler closest to you. Menus may vary by location.
-      </p>
+    <div className="card">
+      <h1 className="h1">Select a Cooler</h1>
+      <p className="h2">Choose a location to view menu items available for grab-and-go ordering.</p>
 
-      <ul className="cooler-list">
-        {COOLERS.map((cooler) => (
-          <li key={cooler.id} className="cooler-card">
+      <hr className="hr" />
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {COOLERS.map((c) => {
+          const active = c.cooler_id === selectedCoolerId;
+          return (
             <button
-              type="button"
-              onClick={() => handleSelect(cooler.id)}
-              className={
-                cooler.id === selectedCoolerId
-                  ? "cooler-button cooler-button--active"
-                  : "cooler-button"
-              }
+              key={c.cooler_id}
+              className={`btn ${active ? "btn-green" : ""}`}
+              style={{
+                justifyContent: "space-between",
+                width: "100%",
+                padding: 14,
+              }}
+              onClick={() => pickCooler(c.cooler_id)}
             >
-              <div className="cooler-name">{cooler.name}</div>
-              <div className="cooler-address">{cooler.address}</div>
+              <span style={{ textAlign: "left" }}>
+                <div style={{ fontWeight: 800 }}>{c.name}</div>
+                <div className="small">{c.address}</div>
+                <div className="small">{c.notes}</div>
+              </span>
+              <span className="badge">{c.cooler_id}</span>
             </button>
-          </li>
-        ))}
-      </ul>
-
-      <div className="page-actions">
-        <Link to="/menu" className="btn-primary">
-          Continue to menu
-        </Link>
+          );
+        })}
       </div>
-    </main>
+    </div>
   );
 }

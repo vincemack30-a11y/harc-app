@@ -26,10 +26,12 @@ export const supabase =
           return {
             select: async () => ({ data: [], error: null }),
             insert: async () => ({ data: null, error: null }),
+            upsert: async () => ({ data: null, error: null }),
+            update: async () => ({ data: null, error: null }),
             rpc: async () => ({ data: null, error: null }),
           };
         },
         auth: {
-          getSession: async () => ({ data: null, error: null }),
+          getSession: async () => ({ data: { session: null }, error: null }),
         },
       };
