@@ -1,24 +1,32 @@
 // src/data.js
+// Single source of truth for brand tokens + cooler locations + menu.
+// Must export ORANGE because Cart.jsx imports it.
 
-/**
- * Brand color tokens
- * Keep these stable — used across Cart, Manager, UI cards
- */
 export const ORANGE = {
-  bg: "#FFF7ED",        // page background
-  card: "#FFFFFF",     // card surface
-  border: "#FED7AA",   // light orange border
-  accent: "#F97316",   // primary orange
-  accentDark: "#EA580C",
-  success: "#16A34A",  // green (Place Order)
-  text: "#1F2937",     // dark gray
-  muted: "#6B7280",    // secondary text
+  // page background
+  bg: "#FFF7ED",
+  // cards/panels
+  card: "#FFFFFF",
+  // light border
+  border: "#FED7AA",
+  // primary orange (buttons/accents)
+  accent: "#F97316",
+  // dark text
+  text: "#1F2937",
+  // optional muted text
+  muted: "#6B7280",
+};
+
+export const GREEN = {
+  // green button/positive accent
+  accent: "#16A34A",
+  dark: "#166534",
 };
 
 /**
  * IMPORTANT:
- * - `cooler_id` is the canonical ID saved to Supabase
- * - Do NOT change cooler_id once orders exist
+ * - cooler_id is the stable ID you store in Supabase (orders.cooler_id, intake_requests.cooler_id)
+ * - name/address can change later without breaking analytics
  */
 export const COOLERS = [
   {
@@ -26,7 +34,7 @@ export const COOLERS = [
     cooler_id: "popoff",
     name: "Popoff Health Center",
     address: "611 W Grand Blvd, Detroit, MI",
-    notes: "Front entrance",
+    notes: "Near front entrance",
   },
   {
     id: 2,
@@ -44,28 +52,41 @@ export const COOLERS = [
   },
 ];
 
-/**
- * Menu items
- * - `sku` must be unique
- * - `cooler_id` determines visibility per location
- */
+// Menu items used by customer ordering UI
 export const MENU = [
   {
+    id: 1,
+    sku: "chicken_caesar_salad",
+    name: "Chicken Caesar Salad",
+    price: 9.25,
+    category: "Salads",
+  },
+  {
+    id: 2,
     sku: "veggie_wrap",
     name: "Veggie Wrap",
     price: 7.5,
-    cooler_id: "popoff",
+    category: "Wraps",
   },
   {
-    sku: "chicken_caesar",
-    name: "Chicken Caesar Salad",
-    price: 9.25,
-    cooler_id: "hope",
-  },
-  {
+    id: 3,
     sku: "fruit_cup",
-    name: "Fresh Fruit Cup",
+    name: "Fruit Cup",
     price: 4.5,
-    cooler_id: "partner_1",
+    category: "Snacks",
+  },
+  {
+    id: 4,
+    sku: "greek_yogurt",
+    name: "Greek Yogurt",
+    price: 3.75,
+    category: "Snacks",
+  },
+  {
+    id: 5,
+    sku: "water",
+    name: "Bottled Water",
+    price: 1.5,
+    category: "Drinks",
   },
 ];
