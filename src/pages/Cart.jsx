@@ -17,8 +17,8 @@ export default function Cart({ ctx }) {
     setLastOrder,
   } = ctx;
 
-  const [note, setNote] = useState("");
   const [isPlacing, setIsPlacing] = useState(false);
+  const [note, setNote] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
   const hasItems = cart.length > 0;
@@ -36,8 +36,12 @@ export default function Cart({ ctx }) {
   async function placeOrder() {
     setErrorMsg("");
 
-    if (!selectedCoolerId || !hasItems) {
-      setErrorMsg("Missing cooler or cart items.");
+    if (!selectedCoolerId) {
+      setErrorMsg("Missing cooler selection.");
+      return;
+    }
+    if (!hasItems) {
+      setErrorMsg("Your cart is empty.");
       return;
     }
 
@@ -56,176 +60,149 @@ export default function Cart({ ctx }) {
       const res = await createOrder(payload);
 
       if (!res?.ok) {
-        setErrorMsg(res?.error || "Order failed. Please try again.");
+        setErrorMsg(res?.error || "Order failed.");
         setIsPlacing(false);
         return;
       }
 
-      // success
-      setLastOrder?.(res.data || payload);
-      clearCart?.();
+      // Success
+      setLastOrder(res.data);
+      clearCart();
       setNote("");
       setIsPlacing(false);
       navigate("/order-confirm");
     } catch (e) {
-      setErrorMsg(e?.message || "Order failed. Please try again.");
+      setErrorMsg("Order failed.");
       setIsPlacing(false);
     }
   }
 
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Cart</h2>
-        <div style={{ color: "#6B7280" }}>
-          Cooler: <strong>{selectedCooler?.name || "None selected"}</strong>
-        </div>
+    <div style={{ display: "grid", gap: 14 }}>
+      <h2 style={{ margin: 0 }}>Cart</h2>
+
+      <div style={{ opacity: 0.85 }}>
+        Cooler: <b>{selectedCooler?.name || "None"}</b>
       </div>
 
-      {!hasItems ? (
-        <div style={{ padding: 16, border: "1px solid #FED7AA", borderRadius: 12, background: "#FFFFFF" }}>
-          Your cart is empty.{" "}
-          <Link to="/menu" style={{ color: "#F97316", fontWeight: 700 }}>
-            Go to Menu
-          </Link>
-        </div>
-      ) : (
-        <div style={{ border: "1px solid #FED7AA", borderRadius: 14, background: "#FFFFFF", padding: 16 }}>
-          <div style={{ display: "grid", gap: 12 }}>
-            {cart.map((i) => (
+      <div
+        style={{
+          border: "1px solid var(--border)",
+          borderRadius: 14,
+          padding: 12,
+          background: "var(--card)",
+        }}
+      >
+        {cart.length === 0 ? (
+          <div style={{ opacity: 0.75 }}>No items yet.</div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {cart.map((item) => (
               <div
-                key={i.sku ?? i.id}
+                key={item.sku ?? item.id}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto",
-                  gap: 12,
-                  padding: 12,
-                  border: "1px solid #FED7AA",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 10,
+                  border: "1px solid var(--border)",
                   borderRadius: 12,
+                  padding: 10,
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: 800 }}>{i.name}</div>
-                  <div style={{ color: "#6B7280" }}>${Number(i.price || 0).toFixed(2)} each</div>
+                <div style={{ display: "grid" }}>
+                  <b>{item.name}</b>
+                  <span style={{ opacity: 0.8 }}>${Number(item.price).toFixed(2)} each</span>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <button
-                    onClick={() => decFromCart(i.sku ?? i.id)}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      border: "1px solid #FED7AA",
-                      background: "#FFF7ED",
-                      fontWeight: 900,
-                      cursor: "pointer",
-                    }}
+                    className="btn"
+                    onClick={() => decFromCart(item.sku ?? item.id)}
+                    disabled={isPlacing}
+                    style={{ width: 36, height: 36, borderRadius: 12 }}
+                    aria-label="Decrease"
                   >
                     -
                   </button>
 
-                  <div style={{ minWidth: 28, textAlign: "center", fontWeight: 800 }}>{i.qty}</div>
+                  <div style={{ minWidth: 24, textAlign: "center" }}>
+                    <b>{item.qty}</b>
+                  </div>
 
                   <button
-                    onClick={() => addToCart(i.sku ?? i.id)}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      border: "1px solid #FED7AA",
-                      background: "#FFF7ED",
-                      fontWeight: 900,
-                      cursor: "pointer",
-                    }}
+                    className="btn"
+                    onClick={() => addToCart(item)}
+                    disabled={isPlacing}
+                    style={{ width: 36, height: 36, borderRadius: 12 }}
+                    aria-label="Increase"
                   >
                     +
                   </button>
                 </div>
               </div>
             ))}
+          </div>
+        )}
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 900 }}>Total</div>
-                <div style={{ fontSize: 18, fontWeight: 900 }}>${Number(cartTotal || 0).toFixed(2)}</div>
-              </div>
-
-              <button
-                onClick={placeOrder}
-                disabled={isPlacing}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "0",
-                  background: isPlacing ? "#9CA3AF" : "#16A34A",
-                  color: "#fff",
-                  fontWeight: 900,
-                  cursor: isPlacing ? "not-allowed" : "pointer",
-                  minWidth: 160,
-                }}
-              >
-                {isPlacing ? "Placing..." : "Place Order"}
-              </button>
-            </div>
-
-            <div>
-              <div style={{ color: "#6B7280", fontWeight: 700, marginBottom: 6 }}>
-                Optional note (allergies, substitutions, etc.)
-              </div>
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Type a short note..."
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 12,
-                  border: "1px solid #FED7AA",
-                  outline: "none",
-                }}
-              />
-            </div>
-
-            {errorMsg ? (
-              <div style={{ color: "#DC2626", fontWeight: 800 }}>Error: {errorMsg}</div>
-            ) : null}
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link
-                to="/menu"
-                style={{
-                  display: "inline-block",
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  background: "#F97316",
-                  color: "#fff",
-                  fontWeight: 900,
-                  textDecoration: "none",
-                }}
-              >
-                Back to Menu
-              </Link>
-
-              <Link
-                to="/help"
-                style={{
-                  display: "inline-block",
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid #FED7AA",
-                  background: "#FFF7ED",
-                  color: "#111827",
-                  fontWeight: 900,
-                  textDecoration: "none",
-                }}
-              >
-                Need Help?
-              </Link>
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div>
+            <div style={{ opacity: 0.8 }}>Total</div>
+            <div style={{ fontSize: 18 }}>
+              <b>${Number(cartTotal || 0).toFixed(2)}</b>
             </div>
           </div>
+
+          <button
+            className="btnPrimary"
+            onClick={placeOrder}
+            disabled={isPlacing || !hasItems || !selectedCoolerId}
+            style={{ minWidth: 160 }}
+          >
+            {isPlacing ? "Placing..." : "Place Order (v2)"}
+          </button>
         </div>
-      )}
+
+        <div style={{ marginTop: 10 }}>
+          <div style={{ opacity: 0.8, marginBottom: 6 }}>Optional note</div>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Type a short note..."
+            disabled={isPlacing}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        {errorMsg ? (
+          <div style={{ marginTop: 10, color: "#dc2626", fontWeight: 600 }}>
+            Error: {errorMsg}
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+          <Link to="/menu" className="btnPrimary" style={{ textDecoration: "none" }}>
+            Back to Menu
+          </Link>
+          <Link to="/help" className="btn" style={{ textDecoration: "none" }}>
+            Need Help?
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
