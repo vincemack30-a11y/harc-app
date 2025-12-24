@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
+import { createOrder } from "../api.js";
 
 export default function Cart({ ctx }) {
   const navigate = useNavigate();
@@ -22,68 +22,48 @@ export default function Cart({ ctx }) {
 
   const hasItems = cart.length > 0;
 
-  const lineItems = useMemo(() => {
+  const items = useMemo(() => {
     return cart.map((i) => ({
-      sku: i.sku,
+      sku: i.sku ?? i.id,
       name: i.name,
-      price: i.price,
-      qty: i.qty,
-      line_total: (i.price || 0) * (i.qty || 0),
+      price: Number(i.price || 0),
+      qty: Number(i.qty || 0),
+      line_total: Number(i.price || 0) * Number(i.qty || 0),
     }));
   }, [cart]);
 
   async function placeOrder() {
     setErrorMsg("");
 
-    if (!selectedCooler || !selectedCoolerId) {
-      setErrorMsg("Select a cooler before placing an order.");
-      return;
-    }
-    if (!hasItems) {
-      setErrorMsg("Your cart is empty.");
+    if (!selectedCoolerId || !hasItems) {
+      setErrorMsg("Missing cooler or cart items.");
       return;
     }
 
     setIsPlacing(true);
 
     try {
-      // ✅ FIX A: note + status are persisted (requires DB columns)
       const payload = {
         cooler_id: selectedCoolerId,
+        cooler_name: selectedCooler?.name || null,
         total: Number(cartTotal.toFixed(2)),
+        items,
         note: note?.trim() || null,
-        status: "placed",
-        items: lineItems,
-        created_at: new Date().toISOString(),
+        source: "harc-app",
       };
 
-      const { data, error } = await supabase
-        .from("orders")
-        .insert([payload])
-        .select();
+      const res = await createOrder(payload);
 
-      if (error) throw error;
+      if (!res?.ok) {
+        throw new Error(res?.error || "Order failed");
+      }
 
-      const inserted = data?.[0] || {
-        id: `local_${Date.now()}`,
-        ...payload,
-      };
-
-      setLastOrder({
-        order_id: inserted.id,
-        cooler_id: inserted.cooler_id,
-        total: inserted.total,
-        items: inserted.items,
-      });
-
+      setLastOrder(res.data);
       clearCart();
       navigate("/confirm");
-    } catch (e) {
-      console.error("[HaRC] placeOrder error", e);
-      setErrorMsg(
-        e?.message ||
-          "Order failed. Check Supabase columns, schema cache, and RLS policies."
-      );
+    } catch (err) {
+      console.error("[HaRC] placeOrder error", err);
+      setErrorMsg(err.message || "Order failed.");
     } finally {
       setIsPlacing(false);
     }
@@ -92,54 +72,35 @@ export default function Cart({ ctx }) {
   return (
     <div className="card">
       <h1 className="h1">Cart</h1>
-
       <p className="h2">
-        Cooler: <strong>{selectedCooler ? selectedCooler.name : "Not selected"}</strong>
+        Cooler: <strong>{selectedCooler?.name || "Not selected"}</strong>
       </p>
 
-      {!selectedCooler ? (
-        <div className="row">
-          <Link to="/coolers" className="btn btn-primary">
-            Select a Cooler
-          </Link>
+      <hr className="hr" />
+
+      {cart.map((i) => (
+        <div key={i.sku ?? i.id} className="card">
+          <div style={{ fontWeight: 900 }}>{i.name}</div>
+          <div className="small">${i.price.toFixed(2)} each</div>
+
+          <div className="row">
+            <button className="btn" onClick={() => decFromCart(i.sku)}>
+              -
+            </button>
+            <span className="badge">{i.qty}</span>
+            <button className="btn" onClick={() => addToCart(i)}>
+              +
+            </button>
+          </div>
         </div>
-      ) : null}
+      ))}
 
       <hr className="hr" />
 
-      {cart.length === 0 ? (
-        <div className="small">No items yet. Go back to the menu to add items.</div>
-      ) : (
-        <div style={{ display: "grid", gap: 10 }}>
-          {cart.map((i) => (
-            <div key={i.sku} className="card" style={{ borderRadius: 14 }}>
-              <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontWeight: 900 }}>{i.name}</div>
-                  <div className="small">${i.price.toFixed(2)} each</div>
-                </div>
-
-                <div className="row" style={{ alignItems: "center" }}>
-                  <button className="btn" onClick={() => decFromCart(i.sku)}>
-                    -
-                  </button>
-                  <span className="badge">{i.qty}</span>
-                  <button className="btn" onClick={() => addToCart(i)}>
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <hr className="hr" />
-
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+      <div className="row" style={{ justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Total</div>
-          <div className="small">${cartTotal.toFixed(2)}</div>
+          <strong>Total</strong>
+          <div>${cartTotal.toFixed(2)}</div>
         </div>
 
         <button
@@ -147,14 +108,12 @@ export default function Cart({ ctx }) {
           disabled={!hasItems || isPlacing}
           onClick={placeOrder}
         >
-          {isPlacing ? "Placing..." : "Place Order"}
+          {isPlacing ? "Placing..." : "Place Order (v2)"}
         </button>
       </div>
 
-      <div style={{ marginTop: 12 }}>
-        <div className="small" style={{ marginBottom: 6 }}>
-          Optional note (allergies, substitutions, etc.)
-        </div>
+      <div style={{ marginTop: 10 }}>
+        <div className="small">Optional note</div>
         <input
           className="input"
           value={note}
@@ -163,11 +122,11 @@ export default function Cart({ ctx }) {
         />
       </div>
 
-      {errorMsg ? (
-        <div style={{ marginTop: 12 }} className="small">
-          <strong style={{ color: "#b91c1c" }}>Error:</strong> {errorMsg}
+      {errorMsg && (
+        <div className="small" style={{ color: "#b91c1c", marginTop: 10 }}>
+          Error: {errorMsg}
         </div>
-      ) : null}
+      )}
 
       <hr className="hr" />
 
