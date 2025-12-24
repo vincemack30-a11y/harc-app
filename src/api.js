@@ -1,5 +1,5 @@
 // src/api.js
-// API layer: uses localStorage on localhost, real backend on Vercel.
+// API layer: uses localStorage on localhost, Vercel serverless endpoints in production.
 
 import { COOLERS, MENU } from "./data";
 
@@ -21,38 +21,40 @@ export async function listOrders() {
       const raw = window.localStorage.getItem(ORDERS_KEY);
       const orders = raw ? JSON.parse(raw) : [];
       return { ok: true, data: orders };
-    } catch (error) {
+    } catch {
       return { ok: false, error: "Could not load orders (local)" };
     }
   }
 
   try {
-    const res = await fetch("/api/orders");
-    const json = await res.json();
-    return json;
-  } catch (error) {
-    return { ok: false, error: "Could not load orders (api)" };
+    const res = await fetch("/api/orders", { method: "GET" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: json?.error || "Order list failed" };
+    return json?.ok ? json : { ok: true, data: json?.data ?? json ?? [] };
+  } catch {
+    return { ok: false, error: "Could not load orders (server)" };
   }
 }
 
 // POST /orders
-export async function createOrder(orderInput) {
+export async function createOrder(payload) {
   if (isLocalhost()) {
     try {
       const raw = window.localStorage.getItem(ORDERS_KEY);
-      const existing = raw ? JSON.parse(raw) : [];
+      const orders = raw ? JSON.parse(raw) : [];
 
       const order = {
-        id: Date.now(),
-        createdAt: new Date().toISOString(),
-        ...orderInput,
+        id: `local_${Date.now()}`,
+        created_at: new Date().toISOString(),
+        ...payload,
       };
 
-      const updated = [order, ...existing];
-      window.localStorage.setItem(ORDERS_KEY, JSON.stringify(updated));
+      const next = [order, ...orders];
+      window.localStorage.setItem(ORDERS_KEY, JSON.stringify(next));
+
       return { ok: true, data: order };
-    } catch (error) {
-      return { ok: false, error: "Could not save order (local)" };
+    } catch {
+      return { ok: false, error: "Could not create order (local)" };
     }
   }
 
@@ -60,53 +62,60 @@ export async function createOrder(orderInput) {
     const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(orderInput),
+      body: JSON.stringify(payload),
     });
-    return await res.json();
-  } catch (error) {
-    return { ok: false, error: "Could not save order (api)" };
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: json?.error || "Order create failed" };
+    return json?.ok ? json : { ok: true, data: json?.data ?? json };
+  } catch {
+    return { ok: false, error: "Could not create order (server)" };
   }
 }
 
-// DELETE /orders
-export async function clearOrders() {
+/* -------------------- INTAKE -------------------- */
+
+// GET /intake
+export async function listIntakeRequests() {
   if (isLocalhost()) {
     try {
-      window.localStorage.removeItem(ORDERS_KEY);
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, error: "Could not clear orders (local)" };
+      const raw = window.localStorage.getItem(INTAKE_KEY);
+      const rows = raw ? JSON.parse(raw) : [];
+      return { ok: true, data: rows };
+    } catch {
+      return { ok: false, error: "Could not load intake (local)" };
     }
   }
 
   try {
-    await fetch("/api/orders", { method: "DELETE" });
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: "Could not clear orders (api)" };
+    const res = await fetch("/api/intake", { method: "GET" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: json?.error || "Intake list failed" };
+    return json?.ok ? json : { ok: true, data: json?.data ?? json ?? [] };
+  } catch {
+    return { ok: false, error: "Could not load intake (server)" };
   }
 }
 
-/* -------------------- INTAKE REQUESTS -------------------- */
-
 // POST /intake
-export async function createIntakeRequest(intakeInput) {
+export async function createIntakeRequest(payload) {
   if (isLocalhost()) {
     try {
       const raw = window.localStorage.getItem(INTAKE_KEY);
-      const existing = raw ? JSON.parse(raw) : [];
+      const rows = raw ? JSON.parse(raw) : [];
 
-      const entry = {
-        id: Date.now(),
-        createdAt: new Date().toISOString(),
-        ...intakeInput,
+      const row = {
+        id: `local_${Date.now()}`,
+        created_at: new Date().toISOString(),
+        ...payload,
       };
 
-      const updated = [entry, ...existing];
-      window.localStorage.setItem(INTAKE_KEY, JSON.stringify(updated));
-      return { ok: true, data: entry };
-    } catch (error) {
-      return { ok: false, error: "Could not save intake (local)" };
+      const next = [row, ...rows];
+      window.localStorage.setItem(INTAKE_KEY, JSON.stringify(next));
+
+      return { ok: true, data: row };
+    } catch {
+      return { ok: false, error: "Could not create intake (local)" };
     }
   }
 
@@ -114,20 +123,23 @@ export async function createIntakeRequest(intakeInput) {
     const res = await fetch("/api/intake", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(intakeInput),
+      body: JSON.stringify(payload),
     });
-    return await res.json();
-  } catch (error) {
-    return { ok: false, error: "Could not save intake (api)" };
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: json?.error || "Intake create failed" };
+    return json?.ok ? json : { ok: true, data: json?.data ?? json };
+  } catch {
+    return { ok: false, error: "Could not create intake (server)" };
   }
 }
 
-/* -------------------- COOLERS + MENU -------------------- */
+/* -------------------- DATA HELPERS (optional) -------------------- */
 
-export async function listCoolers() {
-  return { ok: true, data: COOLERS };
+export function getCoolers() {
+  return COOLERS;
 }
 
-export async function listMenu() {
-  return { ok: true, data: MENU };
+export function getMenu() {
+  return MENU;
 }
