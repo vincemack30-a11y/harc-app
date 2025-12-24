@@ -1,52 +1,74 @@
 // src/pages/Cart.jsx
+
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { COOLERS, ORANGE } from "../data.js";
-import { createOrder } from "../lib/ordersApi.js";
+import { COOLERS, ORANGE } from "../data";
+import { createOrder } from "../lib/ordersApi";
 
 export default function Cart({
   selectedCoolerId,
-  cart,
+  cart = [],            // ✅ hard default prevents crashes
   setCart,
   setLastOrder,
 }) {
   const navigate = useNavigate();
   const [note, setNote] = useState("");
-  const [isPlacing, setIsPlacing] = useState(false);
+  const [placing, setPlacing] = useState(false);
   const [error, setError] = useState("");
+
+  /* ===============================
+     Derived Data
+  ================================ */
 
   const selectedCooler = useMemo(() => {
     return COOLERS.find((c) => c.cooler_id === selectedCoolerId) || null;
   }, [selectedCoolerId]);
 
   const cartTotal = useMemo(() => {
+    if (!Array.isArray(cart)) return 0;
+
     return cart.reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
+      (sum, item) =>
+        sum + Number(item?.price || 0) * Number(item?.qty || 0),
       0
     );
   }, [cart]);
 
-  const inc = (skuOrId) => {
-    setCart((prev) => {
-      const idx = prev.findIndex((x) => (x.sku ?? x.id) === skuOrId);
-      if (idx < 0) return prev;
+  /* ===============================
+     Quantity Controls
+  ================================ */
+
+  const inc = (sku) => {
+    setCart((prev = []) => {
+      const idx = prev.findIndex((i) => i.sku === sku);
+      if (idx === -1) return prev;
+
       const next = [...prev];
-      next[idx] = { ...next[idx], qty: Number(next[idx].qty || 0) + 1 };
+      next[idx] = { ...next[idx], qty: (next[idx].qty || 0) + 1 };
       return next;
     });
   };
 
-  const dec = (skuOrId) => {
-    setCart((prev) => {
-      const idx = prev.findIndex((x) => (x.sku ?? x.id) === skuOrId);
-      if (idx < 0) return prev;
+  const dec = (sku) => {
+    setCart((prev = []) => {
+      const idx = prev.findIndex((i) => i.sku === sku);
+      if (idx === -1) return prev;
+
       const next = [...prev];
-      const newQty = Number(next[idx].qty || 0) - 1;
-      if (newQty <= 0) return next.filter((_, i) => i !== idx);
+      const newQty = (next[idx].qty || 0) - 1;
+
+      if (newQty <= 0) {
+        return next.filter((_, i) => i !== idx);
+      }
+
       next[idx] = { ...next[idx], qty: newQty };
       return next;
     });
   };
+
+  /* ===============================
+     Place Order
+  ================================ */
 
   async function placeOrder() {
     setError("");
@@ -55,238 +77,101 @@ export default function Cart({
       setError("Please select a cooler first.");
       return;
     }
-    if (!cart || cart.length === 0) {
+
+    if (!cart.length) {
       setError("Your cart is empty.");
       return;
     }
 
-    setIsPlacing(true);
     try {
-      const items = cart.map((i) => ({
-        sku: i.sku ?? i.id,
-        name: i.name,
-        price: Number(i.price || 0),
-        qty: Number(i.qty || 0),
-      }));
+      setPlacing(true);
 
-      const payload = {
+      const res = await createOrder({
         cooler_id: selectedCoolerId,
-        total: Number(cartTotal.toFixed(2)),
-        items,
-        note: note?.trim() ? note.trim() : null,
-        source: "harc-app",
-      };
-
-      const res = await createOrder(payload);
+        items: cart,
+        note,
+        total: cartTotal,
+      });
 
       if (!res?.ok) {
-        setError(res?.error || "Order failed. Please try again.");
-        return;
+        throw new Error(res?.error || "Order failed");
       }
 
-      // save + clear
       setLastOrder(res.data);
       setCart([]);
-      setNote("");
-
       navigate("/confirm");
     } catch (e) {
-      setError("Order failed. Please try again.");
+      setError(e.message || "Order failed");
     } finally {
-      setIsPlacing(false);
+      setPlacing(false);
     }
   }
 
+  /* ===============================
+     Render
+  ================================ */
+
   return (
-    <div
-      style={{
-        padding: 16,
-        background: ORANGE.bg,
-        minHeight: "calc(100vh - 72px)",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 920,
-          margin: "0 auto",
-          background: ORANGE.card,
-          border: `1px solid ${ORANGE.border}`,
-          borderRadius: 16,
-          padding: 18,
-          boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
-        }}
-      >
-        <h2 style={{ margin: 0, color: ORANGE.text }}>Cart</h2>
-        <div style={{ marginTop: 6, color: "#6b7280", fontSize: 14 }}>
-          Cooler:{" "}
-          <b style={{ color: ORANGE.text }}>
-            {selectedCooler?.name || "None selected"}
-          </b>
-        </div>
+    <div style={{ background: ORANGE.bg, minHeight: "100vh", padding: 16 }}>
+      <h2>Cart</h2>
 
-        <div style={{ marginTop: 16 }}>
-          {cart.length === 0 ? (
-            <div style={{ color: "#6b7280" }}>No items in cart.</div>
-          ) : (
-            <div style={{ display: "grid", gap: 12 }}>
-              {cart.map((item) => {
-                const key = item.sku ?? item.id;
-                return (
-                  <div
-                    key={key}
-                    style={{
-                      border: `1px solid ${ORANGE.border}`,
-                      borderRadius: 14,
-                      padding: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 800, color: ORANGE.text }}>
-                        {item.name}
-                      </div>
-                      <div style={{ fontSize: 13, color: "#6b7280" }}>
-                        ${Number(item.price || 0).toFixed(2)} each
-                      </div>
-                    </div>
+      {selectedCooler && (
+        <p style={{ color: ORANGE.muted }}>
+          Cooler: {selectedCooler.name}
+        </p>
+      )}
 
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button
-                        onClick={() => dec(key)}
-                        style={qtyBtn()}
-                        aria-label="Decrease quantity"
-                      >
-                        -
-                      </button>
-                      <div style={{ width: 26, textAlign: "center", fontWeight: 800 }}>
-                        {Number(item.qty || 0)}
-                      </div>
-                      <button
-                        onClick={() => inc(key)}
-                        style={qtyBtn()}
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
+      {cart.map((item) => (
         <div
+          key={item.sku}
           style={{
-            marginTop: 16,
-            paddingTop: 14,
-            borderTop: `1px solid ${ORANGE.border}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
+            background: ORANGE.card,
+            border: `1px solid ${ORANGE.border}`,
+            padding: 12,
+            marginBottom: 12,
+            borderRadius: 8,
           }}
         >
-          <div>
-            <div style={{ fontWeight: 900, color: ORANGE.text }}>
-              Total
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: ORANGE.text }}>
-              ${Number(cartTotal || 0).toFixed(2)}
-            </div>
+          <strong>{item.name}</strong>
+          <div>${item.price.toFixed(2)}</div>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button onClick={() => dec(item.sku)}>-</button>
+            <span>{item.qty}</span>
+            <button onClick={() => inc(item.sku)}>+</button>
           </div>
-
-          <button
-            onClick={placeOrder}
-            disabled={isPlacing || cart.length === 0 || !selectedCoolerId}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 12,
-              border: "0",
-              background: "#16a34a",
-              color: "white",
-              fontWeight: 900,
-              cursor: isPlacing ? "not-allowed" : "pointer",
-              opacity: isPlacing ? 0.7 : 1,
-              minWidth: 170,
-            }}
-          >
-            {isPlacing ? "Placing..." : "Place Order (v2)"}
-          </button>
         </div>
+      ))}
 
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: "#6b7280" }}>
-            Optional note
-          </div>
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Type a short note..."
-            style={{
-              width: "100%",
-              marginTop: 6,
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: `1px solid ${ORANGE.border}`,
-              outline: "none",
-            }}
-          />
-        </div>
-
-        {error ? (
-          <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 13 }}>
-            Error: {error}
-          </div>
-        ) : null}
-
-        <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-          <button
-            onClick={() => navigate("/menu")}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 12,
-              border: "0",
-              background: "#f97316",
-              color: "white",
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
-            Back to Menu
-          </button>
-          <button
-            onClick={() => navigate("/help")}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 12,
-              border: `1px solid ${ORANGE.border}`,
-              background: "white",
-              color: ORANGE.text,
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
-          >
-            Need Help?
-          </button>
-        </div>
+      <div style={{ marginTop: 16 }}>
+        <strong>Total: ${cartTotal.toFixed(2)}</strong>
       </div>
+
+      <textarea
+        placeholder="Optional note"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        style={{ width: "100%", marginTop: 12 }}
+      />
+
+      {error && (
+        <div style={{ color: "red", marginTop: 10 }}>{error}</div>
+      )}
+
+      <button
+        onClick={placeOrder}
+        disabled={placing}
+        style={{
+          marginTop: 16,
+          background: "#16A34A",
+          color: "#fff",
+          padding: "10px 16px",
+          borderRadius: 6,
+          border: "none",
+        }}
+      >
+        {placing ? "Placing..." : "Place Order (v2)"}
+      </button>
     </div>
   );
-}
-
-function qtyBtn() {
-  return {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    border: "1px solid #fed7aa",
-    background: "white",
-    fontWeight: 900,
-    cursor: "pointer",
-  };
 }
