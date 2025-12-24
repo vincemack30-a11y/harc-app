@@ -1,95 +1,69 @@
 // api/intake.js
-// Vercel Serverless Function
-// Handles intake requests for Manager Analytics + Help/Intake flows.
-//
-// ENV REQUIRED (Vercel Project Settings → Environment Variables):
-// - SUPABASE_URL
-// - SUPABASE_SERVICE_ROLE_KEY
-//
-// This file runs on the server (safe to use service role key here).
-
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase =
-  supabaseUrl && supabaseServiceKey
-    ? createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { persistSession: false },
-      })
-    : null;
-
-function send(res, status, payload) {
-  res.status(status).json(payload);
-}
-
-function badEnv(res) {
-  return send(res, 500, {
-    ok: false,
-    error: "Server env missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
-  });
-}
-
 export default async function handler(req, res) {
-  if (!supabase) return badEnv(res);
-
-  // Basic hardening
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-
   try {
-    // GET /api/intake  -> list
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+
+    const SERVICE_ROLE_KEY =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE ||
+      process.env.SERVICE_ROLE ||
+      process.env.SUPABASE_SERVICE_KEY;
+
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Missing server env vars: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY",
+      });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+
     if (req.method === "GET") {
       const { data, error } = await supabase
         .from("intake_requests")
-        .select("*")
+        .select("id, cooler_id, name, phone, email, need, created_at, status, source")
         .order("created_at", { ascending: false })
-        .limit(500);
+        .limit(200);
 
-      if (error) {
-        return send(res, 500, { ok: false, error: error.message });
-      }
-
-      return send(res, 200, { ok: true, data: data || [] });
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      return res.status(200).json({ ok: true, data });
     }
 
-    // POST /api/intake -> create
     if (req.method === "POST") {
-      const body =
-        typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body;
+      const body = req.body || {};
 
-      // Minimal validation (keep flexible)
+      // Keep validation light but safe
+      if (!body.need) {
+        return res.status(400).json({ ok: false, error: "Missing need" });
+      }
+
       const payload = {
-        cooler_id: body?.cooler_id ?? body?.coolerId ?? null,
-        name: body?.name ?? null,
-        phone: body?.phone ?? null,
-        email: body?.email ?? null,
-        notes: body?.notes ?? body?.comment ?? null,
-        // allow any extra fields without breaking
-        meta: body?.meta ?? null,
-        status: body?.status ?? null,
+        cooler_id: body.cooler_id ? String(body.cooler_id) : null,
+        name: body.name ? String(body.name) : null,
+        phone: body.phone ? String(body.phone) : null,
+        email: body.email ? String(body.email) : null,
+        need: String(body.need),
+        status: body.status ? String(body.status) : "new",
+        source: body.source ? String(body.source) : "harc-app",
       };
 
       const { data, error } = await supabase
         .from("intake_requests")
         .insert([payload])
-        .select("*")
+        .select("id, cooler_id, name, phone, email, need, created_at, status, source")
         .single();
 
-      if (error) {
-        return send(res, 500, { ok: false, error: error.message });
-      }
-
-      return send(res, 200, { ok: true, data });
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      return res.status(201).json({ ok: true, data });
     }
 
-    // Unsupported
-    res.setHeader("Allow", "GET, POST");
-    return send(res, 405, { ok: false, error: "Method Not Allowed" });
-  } catch (err) {
-    return send(res, 500, {
-      ok: false,
-      error: err?.message || "Server error",
-    });
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || "Server error" });
   }
 }
