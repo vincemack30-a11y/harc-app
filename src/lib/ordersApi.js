@@ -1,7 +1,6 @@
 // src/lib/ordersApi.js
-// IMPORTANT:
-// This file must NEVER call Supabase directly from the browser.
-// It must ONLY call our Vercel serverless routes: /api/orders
+// IMPORTANT: Customer-side ordering must NEVER call Supabase directly.
+// Customer ordering must ONLY call Vercel serverless routes: /api/orders
 
 function isLocalhost() {
   if (typeof window === "undefined") return false;
@@ -11,7 +10,6 @@ function isLocalhost() {
 
 const ORDERS_KEY = "harcOrderLog";
 
-// Optional: keep localhost behavior aligned with src/api.js
 export async function listOrders() {
   if (isLocalhost()) {
     try {
@@ -47,7 +45,6 @@ export async function createOrder(payload) {
 
       const next = [order, ...orders];
       window.localStorage.setItem(ORDERS_KEY, JSON.stringify(next));
-
       return { ok: true, data: order };
     } catch {
       return { ok: false, error: "Could not create order (local)" };

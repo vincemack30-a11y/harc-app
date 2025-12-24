@@ -1,7 +1,7 @@
 // src/pages/Cart.jsx
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createOrder } from "../api.js";
+import { createOrder } from "../lib/ordersApi.js";
 
 export default function Cart({ ctx }) {
   const navigate = useNavigate();
@@ -17,36 +17,27 @@ export default function Cart({ ctx }) {
     setLastOrder,
   } = ctx;
 
-  const [isPlacing, setIsPlacing] = useState(false);
   const [note, setNote] = useState("");
+  const [isPlacing, setIsPlacing] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   const hasItems = cart.length > 0;
 
-  const lineItems = useMemo(() => {
-    return cart.map((i) => {
-      const sku = i.sku ?? i.id ?? i.name;
-      const price = Number(i.price || 0);
-      const qty = Number(i.qty || 0);
-      return {
-        sku,
-        name: i.name,
-        price,
-        qty,
-        line_total: price * qty,
-      };
-    });
+  const items = useMemo(() => {
+    return cart.map((i) => ({
+      sku: i.sku ?? i.id,
+      name: i.name,
+      price: Number(i.price || 0),
+      qty: Number(i.qty || 0),
+      line_total: Number(i.price || 0) * Number(i.qty || 0),
+    }));
   }, [cart]);
 
   async function placeOrder() {
     setErrorMsg("");
 
-    if (!selectedCooler || !selectedCoolerId) {
-      setErrorMsg("Select a cooler before placing an order.");
-      return;
-    }
-    if (!hasItems) {
-      setErrorMsg("Your cart is empty.");
+    if (!selectedCoolerId || !hasItems) {
+      setErrorMsg("Missing cooler or cart items.");
       return;
     }
 
@@ -56,133 +47,185 @@ export default function Cart({ ctx }) {
       const payload = {
         cooler_id: selectedCoolerId,
         cooler_name: selectedCooler?.name || null,
-        total: Number(Number(cartTotal || 0).toFixed(2)),
-        items: lineItems,
-        source: "harc-app",
+        total: Number(cartTotal || 0),
+        items,
         note: note?.trim() || null,
+        source: "harc-app",
       };
 
       const res = await createOrder(payload);
 
       if (!res?.ok) {
-        throw new Error(res?.error || "Order failed.");
+        setErrorMsg(res?.error || "Order failed. Please try again.");
+        setIsPlacing(false);
+        return;
       }
 
-      const inserted = res?.data || { id: `local_${Date.now()}`, ...payload };
-
-      setLastOrder({
-        order_id: inserted.id,
-        cooler_id: inserted.cooler_id,
-        total: inserted.total,
-        items: inserted.items,
-        note: inserted.note ?? null,
-        created_at: inserted.created_at ?? null,
-        source: inserted.source ?? "harc-app",
-      });
-
-      clearCart();
-      navigate("/confirm");
+      // success
+      setLastOrder?.(res.data || payload);
+      clearCart?.();
+      setNote("");
+      setIsPlacing(false);
+      navigate("/order-confirm");
     } catch (e) {
-      console.error("[HaRC] placeOrder error", e);
-      setErrorMsg(e?.message || "Order failed.");
-    } finally {
+      setErrorMsg(e?.message || "Order failed. Please try again.");
       setIsPlacing(false);
     }
   }
 
   return (
-    <div className="card">
-      <h1 className="h1">Cart</h1>
+    <div style={{ maxWidth: 980, margin: "0 auto", padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <h2 style={{ margin: 0 }}>Cart</h2>
+        <div style={{ color: "#6B7280" }}>
+          Cooler: <strong>{selectedCooler?.name || "None selected"}</strong>
+        </div>
+      </div>
 
-      <p className="h2">
-        Cooler: <strong>{selectedCooler ? selectedCooler.name : "Not selected"}</strong>
-      </p>
-
-      {!selectedCooler ? (
-        <div className="row">
-          <Link to="/coolers" className="btn btn-primary">
-            Select a Cooler
+      {!hasItems ? (
+        <div style={{ padding: 16, border: "1px solid #FED7AA", borderRadius: 12, background: "#FFFFFF" }}>
+          Your cart is empty.{" "}
+          <Link to="/menu" style={{ color: "#F97316", fontWeight: 700 }}>
+            Go to Menu
           </Link>
         </div>
-      ) : null}
-
-      <hr className="hr" />
-
-      {cart.length === 0 ? (
-        <div className="small">No items yet. Go back to the menu to add items.</div>
       ) : (
-        <div style={{ display: "grid", gap: 10 }}>
-          {cart.map((i) => (
-            <div
-              key={i.sku ?? i.id ?? i.name}
-              className="card"
-              style={{ borderRadius: 14 }}
-            >
+        <div style={{ border: "1px solid #FED7AA", borderRadius: 14, background: "#FFFFFF", padding: 16 }}>
+          <div style={{ display: "grid", gap: 12 }}>
+            {cart.map((i) => (
               <div
-                className="row"
-                style={{ justifyContent: "space-between", alignItems: "center" }}
+                key={i.sku ?? i.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto",
+                  gap: 12,
+                  padding: 12,
+                  border: "1px solid #FED7AA",
+                  borderRadius: 12,
+                }}
               >
                 <div>
-                  <div style={{ fontWeight: 900 }}>{i.name}</div>
-                  <div className="small">${Number(i.price || 0).toFixed(2)} each</div>
+                  <div style={{ fontWeight: 800 }}>{i.name}</div>
+                  <div style={{ color: "#6B7280" }}>${Number(i.price || 0).toFixed(2)} each</div>
                 </div>
 
-                <div className="row" style={{ alignItems: "center" }}>
-                  <button className="btn" onClick={() => decFromCart(i.sku)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    onClick={() => decFromCart(i.sku ?? i.id)}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      border: "1px solid #FED7AA",
+                      background: "#FFF7ED",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
                     -
                   </button>
-                  <span className="badge">{i.qty}</span>
-                  <button className="btn" onClick={() => addToCart(i)}>
+
+                  <div style={{ minWidth: 28, textAlign: "center", fontWeight: 800 }}>{i.qty}</div>
+
+                  <button
+                    onClick={() => addToCart(i.sku ?? i.id)}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      border: "1px solid #FED7AA",
+                      background: "#FFF7ED",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
                     +
                   </button>
                 </div>
               </div>
+            ))}
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 900 }}>Total</div>
+                <div style={{ fontSize: 18, fontWeight: 900 }}>${Number(cartTotal || 0).toFixed(2)}</div>
+              </div>
+
+              <button
+                onClick={placeOrder}
+                disabled={isPlacing}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "0",
+                  background: isPlacing ? "#9CA3AF" : "#16A34A",
+                  color: "#fff",
+                  fontWeight: 900,
+                  cursor: isPlacing ? "not-allowed" : "pointer",
+                  minWidth: 160,
+                }}
+              >
+                {isPlacing ? "Placing..." : "Place Order"}
+              </button>
             </div>
-          ))}
+
+            <div>
+              <div style={{ color: "#6B7280", fontWeight: 700, marginBottom: 6 }}>
+                Optional note (allergies, substitutions, etc.)
+              </div>
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Type a short note..."
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #FED7AA",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            {errorMsg ? (
+              <div style={{ color: "#DC2626", fontWeight: 800 }}>Error: {errorMsg}</div>
+            ) : null}
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Link
+                to="/menu"
+                style={{
+                  display: "inline-block",
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  background: "#F97316",
+                  color: "#fff",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                }}
+              >
+                Back to Menu
+              </Link>
+
+              <Link
+                to="/help"
+                style={{
+                  display: "inline-block",
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #FED7AA",
+                  background: "#FFF7ED",
+                  color: "#111827",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                }}
+              >
+                Need Help?
+              </Link>
+            </div>
+          </div>
         </div>
       )}
-
-      <hr className="hr" />
-
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Total</div>
-          <div className="small">${Number(cartTotal || 0).toFixed(2)}</div>
-        </div>
-
-        <button className="btn btn-green" disabled={!hasItems || isPlacing} onClick={placeOrder}>
-          {isPlacing ? "Placing..." : "Place Order"}
-        </button>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <div className="small" style={{ marginBottom: 6 }}>
-          Optional note (allergies, substitutions, etc.)
-        </div>
-        <input
-          className="input"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Type a short note..."
-        />
-      </div>
-
-      {errorMsg ? (
-        <div style={{ marginTop: 12 }} className="small">
-          <strong style={{ color: "#b91c1c" }}>Error:</strong> {errorMsg}
-        </div>
-      ) : null}
-
-      <hr className="hr" />
-
-      <div className="row">
-        <Link to="/menu" className="btn btn-primary">
-          Back to Menu
-        </Link>
-        <Link to="/help" className="btn">
-          Need Help?
-        </Link>
-      </div>
     </div>
   );
 }
