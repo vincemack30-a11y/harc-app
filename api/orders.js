@@ -1,36 +1,29 @@
 // api/orders.js
 import { createClient } from "@supabase/supabase-js";
 
-function json(res, status, body) {
-  res.status(status).setHeader("Content-Type", "application/json");
-  res.end(JSON.stringify(body));
-}
-
 export default async function handler(req, res) {
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SERVICE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.SERVICE_ROLE ||
-    process.env.SUPABASE_SERVICE_ROLE;
-
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    return json(res, 500, {
-      ok: false,
-      error:
-        "Server misconfigured: missing SUPABASE_URL and/or service role key env var in Vercel.",
-      missing: {
-        SUPABASE_URL: !SUPABASE_URL,
-        SERVICE_KEY: !SERVICE_KEY,
-      },
-    });
-  }
-
-  const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { persistSession: false },
-  });
-
   try {
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+
+    // Support multiple env var names (so deploys don’t break)
+    const SERVICE_ROLE_KEY =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE ||
+      process.env.SERVICE_ROLE ||
+      process.env.SUPABASE_SERVICE_KEY;
+
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      return res.status(500).json({
+        ok: false,
+        error:
+          "Missing server env vars: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY",
+      });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+
     if (req.method === "GET") {
       const { data, error } = await supabase
         .from("orders")
@@ -38,17 +31,17 @@ export default async function handler(req, res) {
         .order("created_at", { ascending: false })
         .limit(200);
 
-      if (error) return json(res, 500, { ok: false, error: error.message });
-      return json(res, 200, { ok: true, data });
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      return res.status(200).json({ ok: true, data });
     }
 
     if (req.method === "POST") {
       const body = req.body || {};
 
-      if (!body.cooler_id || !Array.isArray(body.items) || body.items.length === 0) {
-        return json(res, 400, {
+      if (!body.cooler_id || !Array.isArray(body.items)) {
+        return res.status(400).json({
           ok: false,
-          error: "Missing cooler_id or items.",
+          error: "Missing cooler_id or items",
         });
       }
 
@@ -66,12 +59,12 @@ export default async function handler(req, res) {
         .select("id, cooler_id, total, items, created_at, note, source")
         .single();
 
-      if (error) return json(res, 500, { ok: false, error: error.message });
-      return json(res, 201, { ok: true, data });
+      if (error) return res.status(500).json({ ok: false, error: error.message });
+      return res.status(201).json({ ok: true, data });
     }
 
-    return json(res, 405, { ok: false, error: "Method not allowed" });
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
   } catch (e) {
-    return json(res, 500, { ok: false, error: e?.message || "Server error" });
+    return res.status(500).json({ ok: false, error: e?.message || "Server error" });
   }
 }
