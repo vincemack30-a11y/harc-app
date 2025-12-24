@@ -1,6 +1,7 @@
 // src/AppShell.jsx
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { getActiveCoolerId } from "./lib/activeCooler.js";
 
 const AppShell = ({ children }) => {
   const location = useLocation();
@@ -9,8 +10,18 @@ const AppShell = ({ children }) => {
   const isManagerRoute = location.pathname.startsWith("/manager");
   const isDeliveryRoute = location.pathname.startsWith("/delivery");
 
+  // 🔑 Read active cooler ONCE at shell level
+  const activeCoolerId = getActiveCoolerId();
+
+  // 🔑 Helper to preserve cooler context
+  const withCooler = (path) => {
+    if (!activeCoolerId) return path;
+    return `${path}?cooler_id=${encodeURIComponent(activeCoolerId)}`;
+  };
+
   const handleHomeClick = () => {
-    navigate("/");
+    // Never drop cooler context when going "home"
+    navigate(withCooler("/"));
   };
 
   return (
@@ -33,7 +44,7 @@ const AppShell = ({ children }) => {
 
           <nav className="flex items-center gap-3 text-[11px]">
             <Link
-              to="/delivery"
+              to={withCooler("/delivery")}
               className={`px-3 py-1 rounded-full border transition ${
                 isDeliveryRoute
                   ? "bg-orange-500 text-black border-orange-500"
@@ -57,7 +68,7 @@ const AppShell = ({ children }) => {
         </div>
       </header>
 
-      {/* Main content area */}
+      {/* Main content */}
       <main className="mx-auto max-w-4xl px-0 sm:px-4 py-4">
         {children}
       </main>

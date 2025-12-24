@@ -1,66 +1,44 @@
 // src/context/AppContext.jsx
 import React, { createContext, useContext, useMemo, useState } from "react";
 
+// App-wide state: active cooler, basic user/session flags, etc.
+// Keep this minimal + stable so pages can rely on it.
 const AppContext = createContext(null);
 
-export const AppProvider = ({ children }) => {
-  // Selected cooler (object from COOLERS)
-  const [selectedCooler, setSelectedCooler] = useState(null);
+export function AppProvider({ children }) {
+  // Active cooler selection (used by Coolers/Menu/Confirm flows)
+  const [activeCoolerId, setActiveCoolerId] = useState(null);
 
-  // Cart is { [menuItemId]: qty }
-  const [cart, setCart] = useState({});
-
-  // Simple survey capture (optional internal survey)
-  const [survey, setSurvey] = useState({
-    feeling: "",
-    speed: "",
-    comment: "",
+  // Optional: track a lightweight "mock user" for demo purposes
+  const [user, setUser] = useState({
+    name: "Guest",
+    role: "customer",
   });
 
-  // Order receipt payload (for confirmation screen)
-  const [lastOrder, setLastOrder] = useState(null);
-
-  const addToCart = (itemId, qty = 1) => {
-    setCart((prev) => {
-      const next = { ...prev };
-      next[itemId] = (next[itemId] || 0) + qty;
-      if (next[itemId] <= 0) delete next[itemId];
-      return next;
-    });
-  };
-
-  const setCartQty = (itemId, qty) => {
-    setCart((prev) => {
-      const next = { ...prev };
-      if (qty <= 0) delete next[itemId];
-      else next[itemId] = qty;
-      return next;
-    });
-  };
-
-  const clearCart = () => setCart({});
+  // Optional: manager unlocked flag (PIN flow may set this elsewhere too)
+  const [managerUnlocked, setManagerUnlocked] = useState(false);
 
   const value = useMemo(
     () => ({
-      selectedCooler,
-      setSelectedCooler,
-      cart,
-      addToCart,
-      setCartQty,
-      clearCart,
-      survey,
-      setSurvey,
-      lastOrder,
-      setLastOrder,
+      activeCoolerId,
+      setActiveCoolerId,
+      user,
+      setUser,
+      managerUnlocked,
+      setManagerUnlocked,
     }),
-    [selectedCooler, cart, survey, lastOrder]
+    [activeCoolerId, user, managerUnlocked]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-};
+}
 
-export const useApp = () => {
+export function useApp() {
   const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp must be used inside <AppProvider />");
+  if (!ctx) {
+    throw new Error("useApp must be used inside <AppProvider>");
+  }
   return ctx;
-};
+}
+
+export { AppContext };
