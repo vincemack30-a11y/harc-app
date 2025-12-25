@@ -1,6 +1,7 @@
 // src/components/Layout.jsx
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { BUILD_INFO } from "../buildInfo.js";
 
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
@@ -21,12 +22,14 @@ function Layout({ children }) {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    background: "linear-gradient(to bottom, #ff7a00 0%, #fff6e5 45%, #e6fff2 100%)",
+    background:
+      "linear-gradient(to bottom, #ff7a00 0%, #fff6e5 45%, #e6fff2 100%)",
     color: "#0f172a",
   };
 
   const headerStyle = {
-    background: "linear-gradient(90deg, #ff7a00 0%, #ffa94d 50%, #22c55e 100%)",
+    background:
+      "linear-gradient(90deg, #ff7a00 0%, #ffa94d 50%, #22c55e 100%)",
     boxShadow: "0 2px 6px rgba(15,23,42,0.15)",
   };
 
@@ -155,6 +158,17 @@ function Layout({ children }) {
     boxShadow: "0 2px 5px rgba(249,115,22,0.4)",
   };
 
+  const buildStampStyle = {
+    width: "100%",
+    marginTop: "6px",
+    fontSize: "10px",
+    opacity: 0.7,
+    display: "flex",
+    justifyContent: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+  };
+
   return (
     <div style={pageStyle}>
       {/* Header */}
@@ -196,7 +210,7 @@ function Layout({ children }) {
         <div style={cardStyle}>{children}</div>
       </main>
 
-      {/* Footer with spaced chips */}
+      {/* Footer */}
       <footer style={footerStyle}>
         <div style={footerInnerStyle}>
           <span>© {new Date().getFullYear()} Authority Health · HaRC</span>
@@ -217,6 +231,18 @@ function Layout({ children }) {
             >
               Donate
             </a>
+          </div>
+
+          {/* Build / version stamp */}
+          <div style={buildStampStyle}>
+            <span>Build: {BUILD_INFO.shaShort || "local"}</span>
+            {BUILD_INFO.branch ? (
+              <span>Branch: {BUILD_INFO.branch}</span>
+            ) : null}
+            <span>Env: {BUILD_INFO.env}</span>
+            <span>
+              Built: {new Date(BUILD_INFO.builtAt).toLocaleString()}
+            </span>
           </div>
         </div>
       </footer>
