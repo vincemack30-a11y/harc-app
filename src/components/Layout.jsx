@@ -1,7 +1,6 @@
 // src/components/Layout.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BUILD_INFO } from "../buildInfo.js";
 
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
@@ -15,8 +14,61 @@ const DONATE_URL = "https://authorityhealth.org/donate/";
 const FB_URL = "https://www.facebook.com/detroitauthorityhealth/";
 const IG_URL = "https://www.instagram.com/authority_health/";
 
+function safeShortSha(sha) {
+  if (!sha) return "";
+  return sha.length > 12 ? sha.slice(0, 12) : sha;
+}
+
 function Layout({ children }) {
   const location = useLocation();
+
+  const [stamp, setStamp] = useState({
+    env: import.meta.env?.DEV ? "development" : "production",
+    branch: "",
+    sha: "",
+    shaShort: "",
+    serverTime: "",
+    ok: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStatus() {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        const json = await res.json();
+
+        if (cancelled) return;
+
+        if (json && json.ok) {
+          setStamp({
+            env: json.env || "production",
+            branch: json.branch || "",
+            sha: json.sha || "",
+            shaShort: json.shaShort || safeShortSha(json.sha),
+            serverTime: json.serverTime || "",
+            ok: true,
+          });
+        } else {
+          // If /api/status exists but returns ok:false
+          setStamp((s) => ({
+            ...s,
+            ok: false,
+          }));
+        }
+      } catch (e) {
+        // Local Vite dev won’t have /api/status unless running `vercel dev`
+        if (cancelled) return;
+        setStamp((s) => ({ ...s, ok: false }));
+      }
+    }
+
+    loadStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const pageStyle = {
     minHeight: "100vh",
@@ -162,12 +214,26 @@ function Layout({ children }) {
     width: "100%",
     marginTop: "6px",
     fontSize: "10px",
-    opacity: 0.7,
+    opacity: 0.75,
     display: "flex",
     justifyContent: "center",
     gap: "10px",
     flexWrap: "wrap",
   };
+
+  const buildText = stamp.ok
+    ? {
+        build: stamp.shaShort || "unknown",
+        branch: stamp.branch || "unknown",
+        env: stamp.env || "unknown",
+        time: stamp.serverTime ? new Date(stamp.serverTime).toLocaleString() : "",
+      }
+    : {
+        build: "local",
+        branch: "local",
+        env: import.meta.env?.DEV ? "development" : "production",
+        time: "",
+      };
 
   return (
     <div style={pageStyle}>
@@ -192,11 +258,7 @@ function Layout({ children }) {
             {NAV_ITEMS.map((item) => {
               const active = location.pathname === item.to;
               return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  style={navItemStyle(active)}
-                >
+                <Link key={item.to} to={item.to} style={navItemStyle(active)}>
                   {item.label}
                 </Link>
               );
@@ -233,16 +295,12 @@ function Layout({ children }) {
             </a>
           </div>
 
-          {/* Build / version stamp */}
+          {/* Build / version stamp (server truth) */}
           <div style={buildStampStyle}>
-            <span>Build: {BUILD_INFO.shaShort || "local"}</span>
-            {BUILD_INFO.branch ? (
-              <span>Branch: {BUILD_INFO.branch}</span>
-            ) : null}
-            <span>Env: {BUILD_INFO.env}</span>
-            <span>
-              Built: {new Date(BUILD_INFO.builtAt).toLocaleString()}
-            </span>
+            <span>Build: {buildText.build}</span>
+            <span>Branch: {buildText.branch}</span>
+            <span>Env: {buildText.env}</span>
+            {buildText.time ? <span>Server: {buildText.time}</span> : null}
           </div>
         </div>
       </footer>
