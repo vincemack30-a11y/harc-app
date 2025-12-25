@@ -1,48 +1,31 @@
 // api/status.js
-// Server-truth build stamp.
-// This runs on Vercel (serverless) and can read process.env safely.
-// The browser calls /api/status and displays what the server reports.
+// Server-truth status endpoint for build/version stamping.
+// This runs on Vercel (serverless), NOT in the browser.
 
 export default function handler(req, res) {
   try {
-    const sha =
-      process.env.VERCEL_GIT_COMMIT_SHA ||
-      process.env.GIT_COMMIT_SHA ||
-      "";
+    const env = process.env.VERCEL_ENV || "production";
+    const branch = process.env.VERCEL_GIT_COMMIT_REF || "";
+    const sha = process.env.VERCEL_GIT_COMMIT_SHA || "";
 
-    const branch =
-      process.env.VERCEL_GIT_COMMIT_REF ||
-      process.env.GIT_BRANCH ||
-      "";
+    const shaShort = sha ? sha.slice(0, 12) : "";
 
-    const env =
-      process.env.VERCEL_ENV ||
-      process.env.NODE_ENV ||
-      "production";
-
-    const deploymentId = process.env.VERCEL_DEPLOYMENT_ID || "";
-    const region = process.env.VERCEL_REGION || "";
-    const now = new Date().toISOString();
-
-    res.setHeader("Content-Type", "application/json");
-    // Light caching is fine; if you prefer always-live, set to "no-store"
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=600");
-
+    res.setHeader("Cache-Control", "no-store, max-age=0");
     res.status(200).json({
       ok: true,
+      message: "HaRC API is live",
       env,
       branch,
       sha,
-      shaShort: sha ? sha.slice(0, 12) : "",
-      serverTime: now,
-      deploymentId,
-      region,
+      shaShort,
+      serverTime: new Date().toISOString(),
     });
   } catch (e) {
+    res.setHeader("Cache-Control", "no-store, max-age=0");
     res.status(200).json({
       ok: false,
-      error: e?.message || "status_error",
-      env: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
+      message: "status failed",
+      error: e?.message || String(e),
       serverTime: new Date().toISOString(),
     });
   }
