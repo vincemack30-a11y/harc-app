@@ -19,7 +19,7 @@ function safeShortSha(sha) {
   return sha.length > 12 ? sha.slice(0, 12) : sha;
 }
 
-function Layout({ children }) {
+export default function Layout({ children }) {
   const location = useLocation();
 
   const [stamp, setStamp] = useState({
@@ -36,6 +36,7 @@ function Layout({ children }) {
 
     async function loadStatus() {
       try {
+        // IMPORTANT: this is server truth (Vercel serverless function)
         const res = await fetch("/api/status", { cache: "no-store" });
         const json = await res.json();
 
@@ -43,7 +44,7 @@ function Layout({ children }) {
 
         if (json && json.ok) {
           setStamp({
-            env: json.env || "production",
+            env: json.env || (import.meta.env?.DEV ? "development" : "production"),
             branch: json.branch || "",
             sha: json.sha || "",
             shaShort: json.shaShort || safeShortSha(json.sha),
@@ -51,14 +52,9 @@ function Layout({ children }) {
             ok: true,
           });
         } else {
-          // If /api/status exists but returns ok:false
-          setStamp((s) => ({
-            ...s,
-            ok: false,
-          }));
+          setStamp((s) => ({ ...s, ok: false }));
         }
       } catch (e) {
-        // Local Vite dev won’t have /api/status unless running `vercel dev`
         if (cancelled) return;
         setStamp((s) => ({ ...s, ok: false }));
       }
@@ -95,10 +91,7 @@ function Layout({ children }) {
     gap: "16px",
   };
 
-  const titleBlockStyle = {
-    display: "flex",
-    flexDirection: "column",
-  };
+  const titleBlockStyle = { display: "flex", flexDirection: "column" };
 
   const subtitleStyle = {
     fontSize: "11px",
@@ -122,9 +115,7 @@ function Layout({ children }) {
     lineHeight: 1.3,
   };
 
-  const navBarStyle = {
-    borderTop: "1px solid rgba(255,255,255,0.25)",
-  };
+  const navBarStyle = { borderTop: "1px solid rgba(255,255,255,0.25)" };
 
   const navInnerStyle = {
     maxWidth: "960px",
@@ -187,9 +178,7 @@ function Layout({ children }) {
     gap: "6px",
   };
 
-  const chipLabelStyle = {
-    marginRight: "4px",
-  };
+  const chipLabelStyle = { marginRight: "4px" };
 
   const chipStyle = {
     padding: "4px 10px",
@@ -221,23 +210,27 @@ function Layout({ children }) {
     flexWrap: "wrap",
   };
 
+  // IMPORTANT:
+  // Never render placeholder strings like ${VERCEL_GIT_...}.
+  // Only show real values when /api/status confirms them.
   const buildText = stamp.ok
     ? {
         build: stamp.shaShort || "unknown",
         branch: stamp.branch || "unknown",
         env: stamp.env || "unknown",
-        time: stamp.serverTime ? new Date(stamp.serverTime).toLocaleString() : "",
+        time: stamp.serverTime
+          ? new Date(stamp.serverTime).toLocaleString()
+          : "",
       }
     : {
-        build: "local",
-        branch: "local",
+        build: import.meta.env?.DEV ? "local" : "unknown",
+        branch: import.meta.env?.DEV ? "local" : "unknown",
         env: import.meta.env?.DEV ? "development" : "production",
         time: "",
       };
 
   return (
     <div style={pageStyle}>
-      {/* Header */}
       <header style={headerStyle}>
         <div style={headerInnerStyle}>
           <div style={titleBlockStyle}>
@@ -252,7 +245,6 @@ function Layout({ children }) {
           </div>
         </div>
 
-        {/* Nav */}
         <div style={navBarStyle}>
           <div style={navInnerStyle}>
             {NAV_ITEMS.map((item) => {
@@ -267,12 +259,10 @@ function Layout({ children }) {
         </div>
       </header>
 
-      {/* Main content */}
       <main style={mainWrapperStyle}>
         <div style={cardStyle}>{children}</div>
       </main>
 
-      {/* Footer */}
       <footer style={footerStyle}>
         <div style={footerInnerStyle}>
           <span>© {new Date().getFullYear()} Authority Health · HaRC</span>
@@ -295,7 +285,6 @@ function Layout({ children }) {
             </a>
           </div>
 
-          {/* Build / version stamp (server truth) */}
           <div style={buildStampStyle}>
             <span>Build: {buildText.build}</span>
             <span>Branch: {buildText.branch}</span>
@@ -307,5 +296,3 @@ function Layout({ children }) {
     </div>
   );
 }
-
-export default Layout;
