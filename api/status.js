@@ -1,16 +1,25 @@
 // api/status.js
-// Server-truth status endpoint for build/version stamping.
-// This runs on Vercel (serverless), NOT in the browser.
+// Canonical server-truth status endpoint for HaRC
+// This file runs on Vercel serverless (Node), NOT the browser
 
 export default function handler(req, res) {
   try {
     const env = process.env.VERCEL_ENV || "production";
-    const branch = process.env.VERCEL_GIT_COMMIT_REF || "";
-    const sha = process.env.VERCEL_GIT_COMMIT_SHA || "";
+
+    const branch =
+      process.env.VERCEL_GIT_COMMIT_REF ||
+      process.env.GIT_BRANCH ||
+      "";
+
+    const sha =
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.GIT_COMMIT_SHA ||
+      "";
 
     const shaShort = sha ? sha.slice(0, 12) : "";
 
     res.setHeader("Cache-Control", "no-store, max-age=0");
+
     res.status(200).json({
       ok: true,
       message: "HaRC API is live",
@@ -20,12 +29,13 @@ export default function handler(req, res) {
       shaShort,
       serverTime: new Date().toISOString(),
     });
-  } catch (e) {
+  } catch (error) {
     res.setHeader("Cache-Control", "no-store, max-age=0");
+
     res.status(200).json({
       ok: false,
-      message: "status failed",
-      error: e?.message || String(e),
+      message: "status endpoint failed",
+      error: error?.message || String(error),
       serverTime: new Date().toISOString(),
     });
   }
